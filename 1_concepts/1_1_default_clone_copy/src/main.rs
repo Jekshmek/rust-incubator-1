@@ -1,24 +1,30 @@
-#[derive(Clone, Copy, Default, Debug)]
-struct Point {
-    x: i32,
-    y: i32,
-}
+use crate::geometry::{Point, Polyline};
 
-#[derive(Clone, Debug)]
-struct Polyline {
-    pub points: Vec<Point>,
-}
-
-impl Polyline {
-    pub fn new(point: Point) -> Polyline {
-        Polyline {
-            points: vec![point],
-        }
+mod geometry {
+    #[derive(Clone, Copy, Default, Debug)]
+    pub struct Point {
+        pub x: i32,
+        pub y: i32,
     }
 
-    pub fn from_vec(vec: Vec<Point>) -> Polyline {
-        Polyline {
-            points: vec,
+    #[derive(Clone, Debug)]
+    pub struct Polyline {
+        pub points: Vec<Point>,
+    }
+
+    impl Polyline {
+        pub fn new(point: Point) -> Polyline {
+            Polyline {
+                points: vec![point],
+            }
+        }
+
+        pub fn from_vec(vec: Vec<Point>) -> Polyline {
+            Polyline { points: vec }
+        }
+
+        pub fn len(&self) -> usize {
+            self.points.len()
         }
     }
 }
@@ -34,6 +40,9 @@ mod tests {
     #[test]
     fn test_constructors() {
         assert_eq!(Polyline::new(Point::default()).points.len(), 1);
-        assert_eq!(Polyline::from_vec(vec![Point::default(), Point::default()]).points.len(), 2);
+        assert_eq!(
+            Polyline::from_vec(vec![Point::default(), Point::default()]).len(),
+            2
+        );
     }
 }
