@@ -23,7 +23,7 @@ fn main() {
     stack.push(1);
     stack.push(2);
 
-    println!("{}", stack.pop().unwrap());
+    println!("{}", stack.clone().pop().unwrap());
 }
 
 #[cfg(test)]
@@ -42,5 +42,16 @@ mod tests {
         stack.push(1);
 
         assert_eq!(stack.pop(), Some(1));
+    }
+
+    #[test]
+    fn cloning() {
+        let stack = GlobalStack::default();
+        let cloned_stack = stack.clone();
+
+        stack.push(1);
+        stack.push(2);
+
+        assert_eq!(cloned_stack.pop(), Some(2))
     }
 }
