@@ -1,14 +1,41 @@
 use core::fmt;
 
 use std::fmt::Debug;
+use std::marker::PhantomPinned;
 use std::pin::Pin;
 use std::rc::Rc;
+
+struct Unmovable {
+    non_structural_field: String,
+    _pin: PhantomPinned,
+}
+
+impl Unmovable {
+    fn new(data: String) -> Pin<Box<Self>> {
+        let res = Unmovable {
+            non_structural_field: data,
+            _pin: PhantomPinned,
+        };
+
+        Box::pin(res)
+    }
+
+    fn get_non_pinned_field(self: Pin<&mut Self>) -> &mut String {
+        unsafe { &mut self.get_unchecked_mut().non_structural_field }
+    }
+}
 
 mod specific {
     use super::*;
 
     pub trait MutMeSomehow {
         fn mut_me_somehow(self: Pin<&mut Self>);
+    }
+
+    impl MutMeSomehow for Unmovable {
+        fn mut_me_somehow(self: Pin<&mut Self>) {
+            *self.get_non_pinned_field() = "Mutating".into();
+        }
     }
 
     impl<T> MutMeSomehow for Box<T>
