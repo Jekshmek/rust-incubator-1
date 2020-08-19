@@ -1,8 +1,16 @@
 use std::borrow::Cow;
 
 fn get_command_line_arg(name: &str) -> Option<String> {
-    //TODO: Panic if there is nothing after name parameter
-    std::env::args().skip_while(|arg| arg != name).nth(1)
+    let mut v = std::env::args()
+        .skip_while(|arg| arg != name)
+        .take(2)
+        .collect::<Vec<_>>();
+
+    if v.len() == 1 {
+        panic!("No path specified after --conf parameter!")
+    }
+
+    v.pop()
 }
 
 fn main() {
