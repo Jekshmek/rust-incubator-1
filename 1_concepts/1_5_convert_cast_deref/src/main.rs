@@ -1,4 +1,5 @@
 use crate::email::EmailString;
+use crate::random_ptr::Random;
 
 mod email {
     use lazy_static::lazy_static;
@@ -48,26 +49,80 @@ mod email {
             &mut self.0
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn successful_email() {
+            assert_eq!(
+                *EmailString::new("test@test.com".into()).unwrap(),
+                "test@test.com"
+            )
+        }
+
+        #[test]
+        fn failed_email() {
+            assert!(EmailString::new("something".into()).is_none());
+        }
+    }
+}
+
+mod random_ptr {
+    use rand::random;
+    use std::convert::{TryFrom, TryInto};
+    use std::ops::{Deref, DerefMut};
+
+    pub struct Random<T>([T; 3]);
+
+    impl<T: Copy> TryFrom<&[T]> for Random<T> {
+        type Error = &'static str;
+
+        fn try_from(value: &[T]) -> Result<Self, Self::Error> {
+            Ok(value.try_into()?)
+        }
+    }
+
+    impl<T> From<[T; 3]> for Random<T> {
+        fn from(value: [T; 3]) -> Self {
+            Random(value)
+        }
+    }
+
+    impl<T> Deref for Random<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            unsafe {
+                match random::<f32>() {
+                    x if x * 3f32 < 1f32 => self.0.get_unchecked(0),
+                    x if x * 3f32 < 2f32 => self.0.get_unchecked(1),
+                    _ => self.0.get_unchecked(2),
+                }
+            }
+        }
+    }
+
+    impl<T> DerefMut for Random<T> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            unsafe {
+                match random::<f32>() {
+                    x if x * 3f32 < 1f32 => self.0.get_unchecked_mut(0),
+                    x if x * 3f32 < 2f32 => self.0.get_unchecked_mut(1),
+                    _ => self.0.get_unchecked_mut(2),
+                }
+            }
+        }
+    }
 }
 
 fn main() {
-    println!("Implement me!");
-}
+    let ptr = Random::from([
+        EmailString::new("email1@email.com".into()).unwrap(),
+        EmailString::new("email2@email.com".into()).unwrap(),
+        EmailString::new("email3@email.com".into()).unwrap(),
+    ]);
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn successful_email() {
-        assert_eq!(
-            *EmailString::new("test@test.com".into()).unwrap(),
-            "test@test.com"
-        )
-    }
-
-    #[test]
-    fn failed_email() {
-        assert!(EmailString::new("something".into()).is_none());
-    }
+    println!("{}", **ptr);
 }
