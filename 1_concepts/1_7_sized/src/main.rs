@@ -125,7 +125,19 @@ impl CommandHandler<CreateUser> for User {
 }
 
 fn main() {
-    println!("Implement me!");
+    let storage: UserStorage<i32> = UserStorage::default();
+    let mut repo = StaticUserRepository::new(storage);
+
+    let user = User {
+        id: 0,
+        email: "user@email.com".into(),
+        activated: true,
+    };
+    let cmd = CreateUser { key: 1 };
+
+    user.handle_command(&cmd, &mut repo).unwrap();
+
+    dbg!(repo.get_user(&1));
 }
 
 #[cfg(test)]
