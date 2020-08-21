@@ -69,7 +69,7 @@ mod list {
             let mut prev = self
                 .last
                 .as_ref()
-                .and_then(|last| RefCell::borrow_mut(last).prev.clone())
+                .and_then(|last| RefCell::borrow(last).prev.clone())
                 .map(|prev| {
                     let prev = prev.upgrade().unwrap();
                     RefCell::borrow_mut(&prev).next = None;
@@ -79,6 +79,22 @@ mod list {
             std::mem::swap(&mut self.last, &mut prev);
 
             prev.and_then(|node| Arc::try_unwrap(node).ok())
+                .map(|ref_cell| ref_cell.into_inner().data)
+        }
+
+        fn pop_front(&mut self) -> Option<T> {
+            let mut next = self
+                .first
+                .as_ref()
+                .and_then(|first| RefCell::borrow(first).next.clone())
+                .map(|next| {
+                    RefCell::borrow_mut(&next).prev = None;
+                    next
+                });
+
+            std::mem::swap(&mut self.first, &mut next);
+
+            next.and_then(|node| Arc::try_unwrap(node).ok())
                 .map(|ref_cell| ref_cell.into_inner().data)
         }
     }
