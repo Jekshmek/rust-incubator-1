@@ -1,13 +1,10 @@
 mod list {
-    use std::cell::RefCell;
-    use std::fmt::Debug;
-    use std::sync::{Arc, Weak};
+    use std::sync::{Arc, Mutex, Weak};
 
-    #[derive(Debug)]
     struct Node<T> {
         data: T,
-        next: Option<Arc<RefCell<Node<T>>>>,
-        prev: Option<Weak<RefCell<Node<T>>>>,
+        next: Option<Arc<Mutex<Node<T>>>>,
+        prev: Option<Weak<Mutex<Node<T>>>>,
     }
 
     impl<T> Node<T> {
@@ -19,57 +16,50 @@ mod list {
             }
         }
 
-        fn insert_after(node: &mut Arc<RefCell<Node<T>>>, data: T) -> Arc<RefCell<Node<T>>> {
-            let new_node = Arc::new(RefCell::new(Node::new(data)));
+        fn insert_after(node: &mut Arc<Mutex<Node<T>>>, data: T) -> Arc<Mutex<Node<T>>> {
+            let new_node = Arc::new(Mutex::new(Node::new(data)));
 
-            if let Some(next) = &mut node.borrow_mut().next {
-                next.borrow_mut().prev = Some(Arc::downgrade(&new_node));
-                new_node.borrow_mut().next = Some(Arc::clone(next));
+            if let Some(next) = &mut node.lock().unwrap().next {
+                next.lock().unwrap().prev = Some(Arc::downgrade(&new_node));
+                new_node.lock().unwrap().next = Some(Arc::clone(next));
             }
 
-            node.borrow_mut().next = Some(new_node.clone());
-            new_node.borrow_mut().prev = Some(Arc::downgrade(node));
+            node.lock().unwrap().next = Some(new_node.clone());
+            new_node.lock().unwrap().prev = Some(Arc::downgrade(node));
 
             new_node
         }
 
-        fn insert_before(node: &mut Arc<RefCell<Node<T>>>, data: T) -> Arc<RefCell<Node<T>>> {
-            let new_node = Arc::new(RefCell::new(Node::new(data)));
+        fn insert_before(node: &mut Arc<Mutex<Node<T>>>, data: T) -> Arc<Mutex<Node<T>>> {
+            let new_node = Arc::new(Mutex::new(Node::new(data)));
 
-            if let Some(prev) = &mut node.borrow_mut().prev {
+            if let Some(prev) = &mut node.lock().unwrap().prev {
                 let prev = prev.upgrade().unwrap();
-                prev.borrow_mut().next = Some(Arc::clone(&new_node));
-                new_node.borrow_mut().prev = Some(Arc::downgrade(&prev));
+                prev.lock().unwrap().next = Some(Arc::clone(&new_node));
+                new_node.lock().unwrap().prev = Some(Arc::downgrade(&prev));
             }
 
-            node.borrow_mut().prev = Some(Arc::downgrade(&new_node));
-            new_node.borrow_mut().next = Some(Arc::clone(node));
+            node.lock().unwrap().prev = Some(Arc::downgrade(&new_node));
+            new_node.lock().unwrap().next = Some(Arc::clone(node));
 
             new_node
         }
     }
 
-    #[derive(Default, Debug)]
-    struct ListInternal<T> {
-        first: Option<Arc<RefCell<Node<T>>>>,
-        last: Option<Arc<RefCell<Node<T>>>>,
+    #[derive(Default)]
+    pub struct List<T> {
+        first: Option<Arc<Mutex<Node<T>>>>,
+        last: Option<Arc<Mutex<Node<T>>>>,
     }
 
-    impl<T: Debug> ListInternal<T> {
-        fn new() -> Self {
-            ListInternal {
-                first: None,
-                last: None,
-            }
-        }
-
-        fn init(&mut self, data: T) {
-            let new_node = Arc::new(RefCell::new(Node::new(data)));
+    impl<T> List<T> {
+        pub fn init(&mut self, data: T) {
+            let new_node = Arc::new(Mutex::new(Node::new(data)));
             self.first = Some(new_node.clone());
             self.last = Some(new_node);
         }
 
-        fn push_back(&mut self, data: T) {
+        pub fn push_back(&mut self, data: T) {
             if let Some(last) = &mut self.last {
                 *last = Node::insert_after(last, data);
             } else {
@@ -77,7 +67,7 @@ mod list {
             }
         }
 
-        fn push_front(&mut self, data: T) {
+        pub fn push_front(&mut self, data: T) {
             if let Some(first) = &mut self.first {
                 *first = Node::insert_before(first, data);
             } else {
@@ -85,11 +75,11 @@ mod list {
             }
         }
 
-        fn pop_back(&mut self) -> Option<T> {
+        pub fn pop_back(&mut self) -> Option<T> {
             if let Some(last) = &mut self.last {
-                let last = if let Some(prev) = &RefCell::borrow(&last.clone()).prev {
+                let last = if let Some(prev) = &last.clone().lock().unwrap().prev {
                     *last = prev.upgrade().unwrap();
-                    Option::take(&mut last.borrow_mut().next).unwrap()
+                    Option::take(&mut last.lock().unwrap().next).unwrap()
                 } else {
                     self.first = None;
                     Option::take(&mut self.last).unwrap()
@@ -97,15 +87,15 @@ mod list {
 
                 return Arc::try_unwrap(last)
                     .ok()
-                    .map(|node| node.into_inner().data);
+                    .map(|node| node.into_inner().unwrap().data);
             }
 
             None
         }
 
-        fn pop_front(&mut self) -> Option<T> {
+        pub fn pop_front(&mut self) -> Option<T> {
             if let Some(first) = &mut self.first {
-                let res = if let Some(next) = &RefCell::borrow(&first.clone()).next {
+                let res = if let Some(next) = &first.clone().lock().unwrap().next {
                     let res = first.clone();
                     *first = next.clone();
                     res
@@ -114,7 +104,9 @@ mod list {
                     Option::take(&mut self.first).unwrap()
                 };
 
-                return Arc::try_unwrap(res).ok().map(|node| node.into_inner().data);
+                return Arc::try_unwrap(res)
+                    .ok()
+                    .map(|node| node.into_inner().unwrap().data);
             }
 
             None
@@ -126,8 +118,8 @@ mod list {
         use super::*;
 
         #[test]
-        fn push_pop_test() {
-            let mut list = ListInternal::new();
+        fn list_internal_push_pop_test() {
+            let mut list = List::default();
             list.push_back(2);
             list.push_front(1);
             list.push_back(3);
@@ -135,6 +127,7 @@ mod list {
             assert_eq!(list.pop_front(), Some(1));
             assert_eq!(list.pop_front(), Some(2));
             assert_eq!(list.pop_front(), Some(3));
+            assert_eq!(list.pop_front(), None);
 
             list.push_front(2);
             list.push_back(3);
@@ -143,6 +136,7 @@ mod list {
             assert_eq!(list.pop_back(), Some(3));
             assert_eq!(list.pop_back(), Some(2));
             assert_eq!(list.pop_back(), Some(1));
+            assert_eq!(list.pop_back(), None);
         }
     }
 }
