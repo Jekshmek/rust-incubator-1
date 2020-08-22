@@ -1,5 +1,5 @@
 mod list {
-    use std::ops::Deref;
+    use std::ops::{Deref, DerefMut};
     use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
     struct Node<T> {
@@ -155,6 +155,12 @@ mod list {
 
         fn deref(&self) -> &Self::Target {
             &self.0.data
+        }
+    }
+
+    impl<'a, T> DerefMut for ListItem<'a, T> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0.data
         }
     }
 
