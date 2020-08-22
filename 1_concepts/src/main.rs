@@ -1,5 +1,6 @@
 mod list {
-    use std::sync::{Arc, Mutex, Weak};
+    use std::ops::Deref;
+    use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
     struct Node<T> {
         data: T,
@@ -111,6 +112,50 @@ mod list {
 
             None
         }
+
+        pub fn iter(&self) -> ListIter<T> {
+            IntoIterator::into_iter(self)
+        }
+    }
+
+    impl<'a, T> IntoIterator for &'a List<T> {
+        type Item = ListItem<'a, T>;
+        type IntoIter = ListIter<'a, T>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            ListIter {
+                node: self.first.clone(),
+                _list: self,
+            }
+        }
+    }
+
+    pub struct ListIter<'a, T> {
+        node: Option<Arc<Mutex<Node<T>>>>,
+        _list: &'a List<T>,
+    }
+
+    impl<'a, T> Iterator for ListIter<'a, T> {
+        type Item = ListItem<'a, T>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(node) = self.node.clone() {
+                let res = ListItem(node.lock().unwrap());
+                self.node = res.0.next.clone();
+            }
+
+            None
+        }
+    }
+
+    pub struct ListItem<'a, T>(MutexGuard<'a, Node<T>>);
+
+    impl<'a, T> Deref for ListItem<'a, T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0.data
+        }
     }
 
     #[cfg(test)]
@@ -118,7 +163,7 @@ mod list {
         use super::*;
 
         #[test]
-        fn list_internal_push_pop_test() {
+        fn push_pop_test() {
             let mut list = List::default();
             list.push_back(2);
             list.push_front(1);
@@ -137,6 +182,18 @@ mod list {
             assert_eq!(list.pop_back(), Some(2));
             assert_eq!(list.pop_back(), Some(1));
             assert_eq!(list.pop_back(), None);
+        }
+
+        #[test]
+        fn iterator() {
+            let mut list = List::default();
+            list.push_back(1);
+            list.push_back(2);
+            list.push_back(3);
+
+            for (id, item) in list.iter().enumerate() {
+                assert_eq!(id, *item);
+            }
         }
     }
 }
