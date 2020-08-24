@@ -1,38 +1,43 @@
 mod store {
-    use crate::store::private::VendingMachineStateSecure;
     use std::borrow::Cow;
     use std::collections::btree_map::Entry;
     use std::collections::BTreeMap;
-    use std::convert::TryFrom;
 
-    #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd, Eq, Ord)]
-    pub enum Coin {
-        One = 1,
-        Two = 2,
-        Five = 5,
-        Ten = 10,
-        Twenty = 20,
-        Fifty = 50,
-    }
+    use crate::store::coin::Coin;
+    use crate::store::private::VendingMachineStateSecure;
 
-    impl TryFrom<u8> for Coin {
-        type Error = CoinError;
+    pub mod coin {
+        use std::convert::TryFrom;
 
-        fn try_from(value: u8) -> Result<Self, Self::Error> {
-            match value {
-                1 => Ok(Coin::One),
-                2 => Ok(Coin::Two),
-                5 => Ok(Coin::Five),
-                10 => Ok(Coin::Ten),
-                20 => Ok(Coin::Twenty),
-                50 => Ok(Coin::Fifty),
-                _ => Err(CoinError::NoSuchCoin),
+        #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd, Eq, Ord)]
+        pub enum Coin {
+            One = 1,
+            Two = 2,
+            Five = 5,
+            Ten = 10,
+            Twenty = 20,
+            Fifty = 50,
+        }
+
+        impl TryFrom<u8> for Coin {
+            type Error = CoinError;
+
+            fn try_from(value: u8) -> Result<Self, Self::Error> {
+                match value {
+                    1 => Ok(Coin::One),
+                    2 => Ok(Coin::Two),
+                    5 => Ok(Coin::Five),
+                    10 => Ok(Coin::Ten),
+                    20 => Ok(Coin::Twenty),
+                    50 => Ok(Coin::Fifty),
+                    _ => Err(CoinError::NoSuchCoin),
+                }
             }
         }
-    }
 
-    pub enum CoinError {
-        NoSuchCoin,
+        pub enum CoinError {
+            NoSuchCoin,
+        }
     }
 
     #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Eq, Ord)]
