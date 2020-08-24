@@ -1,9 +1,9 @@
 mod store {
     use crate::store::private::VendingMachineStateSecure;
     use std::borrow::Cow;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    #[derive(Debug, Hash, PartialEq, Eq)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd, Eq, Ord)]
     pub enum Coin {
         One = 1,
         Two = 2,
@@ -13,42 +13,63 @@ mod store {
         Fifty = 50,
     }
 
-    #[derive(Clone, Debug, Hash, PartialOrd, PartialEq)]
+    #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Eq, Ord)]
     pub struct Product<'a> {
-        price: u16,
+        price: usize,
         name: Cow<'a, str>,
     }
 
-    impl<'a> Product<'a> {
-        pub fn new(price: u16, name: Cow<'a, str>) -> Self {
-            Product { price, name }
-        }
+    struct PriceAndAmount {
+        price: usize,
+        amount: usize,
     }
 
     pub struct VendingMachine<'a, State> {
-        products: Vec<Product<'a>>,
-        coins: HashMap<Coin, usize>,
+        products: BTreeMap<Cow<'a, str>, PriceAndAmount>,
+        space_left: usize,
+        coins: BTreeMap<Coin, usize>,
         state: State,
     }
 
     impl<'a> VendingMachine<'a, Ready> {
         pub fn new(capacity: usize) -> Self {
             VendingMachine {
-                products: Vec::with_capacity(capacity),
-                coins: HashMap::new(),
+                products: BTreeMap::new(),
+                space_left: capacity,
+                coins: BTreeMap::new(),
                 state: Ready,
             }
         }
 
         pub fn add_product<'b: 'a>(
             machine: &mut Self,
-            product: Product<'b>,
+            name: impl Into<Cow<'b, str>>,
+            price: usize,
         ) -> Result<(), VendingMachineError> {
-            if machine.products.len() == machine.products.capacity() {
+            if machine.space_left == 0 {
                 return Err(VendingMachineError::OutOfFreeSpace);
             }
 
-            machine.products.push(product);
+            let name = name.into();
+            let entry = machine
+                .products
+                .iter_mut()
+                .find(|(product_name, _)| **product_name == name);
+
+            if let Some((_, data)) = entry {
+                if data.price == price {
+                    data.amount += 1;
+                    machine.space_left -= 1;
+                } else {
+                    return Err(VendingMachineError::SameProductNameDifferentPrice);
+                }
+            } else {
+                machine
+                    .products
+                    .insert(name, PriceAndAmount { price, amount: 0 });
+                machine.space_left -= 1;
+            }
+
             Ok(())
         }
 
@@ -74,11 +95,12 @@ mod store {
             let product_id = self
                 .products
                 .iter()
-                .position(|item| item.name == product_name)
+                .position(|(name, _)| name == product_name)
                 .ok_or(VendingMachineError::NoProduct)?;
 
             Ok(VendingMachine {
                 products: self.products,
+                space_left: self.space_left,
                 coins: self.coins,
                 state: Paying {
                     product_id,
@@ -89,6 +111,7 @@ mod store {
     }
 
     pub enum VendingMachineError {
+        SameProductNameDifferentPrice,
         OutOfFreeSpace,
         NoProduct,
         NotEnoughMoney,
