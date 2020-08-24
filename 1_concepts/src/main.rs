@@ -191,22 +191,27 @@ mod list {
 
             for (index, item) in list.iter().enumerate() {
                 crossbeam::scope(|scope| {
+                    // Waiting 10 mills and then trying to increment all nodes
                     scope.spawn(|_| {
                         std::thread::sleep(core::time::Duration::from_millis(10));
                         for item in &list {
                             item.peek(|node| *node += 1);
                         }
                     });
+
+                    // Before previous spawn tries to increment read value, sleep for 30 mills
+                    // and then compare old value to new one to ensure that only 1 thread can access value
+                    scope.spawn(|_| {
+                        item.peek(|node| {
+                            let old = *node;
+                            std::thread::sleep(core::time::Duration::from_millis(30));
+                            let new = *node;
+                            assert_eq!(old, new);
+                            assert_eq!(new, index);
+                        });
+                    });
                 })
                 .unwrap();
-
-                item.peek(|node| {
-                    let old = *node;
-                    std::thread::sleep(core::time::Duration::from_millis(30));
-                    let new = *node;
-                    assert_eq!(old, new);
-                    assert_eq!(new, index + 1);
-                });
             }
 
             for item in &list {
