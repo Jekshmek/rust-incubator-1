@@ -81,12 +81,12 @@ mod utils {
     }
 
     impl<S: PostState> Post<S> {
-        fn transform<T: PostState>(mut self, to: T) -> Post<T> {
+        fn transform<T: PostState>(self, to: T) -> Post<T> {
             Post {
                 id: self.id,
                 user_id: self.user_id,
-                title: std::mem::replace(&mut self.title, Title::new(String::new())),
-                body: std::mem::replace(&mut self.body, Body::new(String::new())),
+                title: self.title,
+                body: self.body,
                 state: to,
             }
         }
