@@ -75,6 +75,32 @@ fn trailing_whitespaces() {
     );
 }
 
+#[test]
+fn too_small() {
+    let mut child = spawn_child(&["10"]);
+
+    write(&mut child, &b"   9\n"[..]);
+    write(&mut child, &b" 10\n"[..]);
+
+    assert_eq!(
+        get_stdout(child),
+        "Guess the number!\nPlease input your guess.\nYou guessed: 9\nToo small!\nPlease input your guess.\nYou guessed: 10\nYou win!\n".as_bytes()
+    );
+}
+
+#[test]
+fn too_big() {
+    let mut child = spawn_child(&["10"]);
+
+    write(&mut child, &b"11\n"[..]);
+    write(&mut child, &b"10\n"[..]);
+
+    assert_eq!(
+        get_stdout(child),
+        "Guess the number!\nPlease input your guess.\nYou guessed: 11\nToo big!\nPlease input your guess.\nYou guessed: 10\nYou win!\n".as_bytes()
+    );
+}
+
 fn spawn_child<I, S>(args: I) -> Child
 where
     I: IntoIterator<Item = S>,
