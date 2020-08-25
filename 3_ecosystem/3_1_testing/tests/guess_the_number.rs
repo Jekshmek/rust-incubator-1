@@ -34,6 +34,12 @@ fn negative_number() {
 }
 
 #[test]
+fn not_a_number_in_env_args() {
+    let output = get_output(&["not_a_number"]);
+    assert!(!output.status.success());
+}
+
+#[test]
 fn first_guess() {
     let mut child = spawn_child(&["5"]);
 
