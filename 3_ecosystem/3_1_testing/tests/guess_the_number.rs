@@ -37,16 +37,9 @@ fn negative_number() {
 fn first_guess() {
     let mut child = spawn_child(&["5"]);
 
-    {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        stdin.write_all(b"5").expect("Failed to write to stdin");
-    }
-
+    write(&mut child, "5".as_bytes());
     assert_eq!(
-        child
-            .wait_with_output()
-            .expect("Process did not end after right number was given")
-            .stdout,
+        get_stdout(child),
         "Guess the number!\nPlease input your guess.\nYou guessed: 5\nYou win!\n".as_bytes()
     );
 }
@@ -55,16 +48,10 @@ fn first_guess() {
 fn trailing_whitespaces() {
     let mut child = spawn_child(&["    25"]);
 
-    {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        stdin.write_all(b"25").expect("Failed to write to stdin");
-    }
+    write(&mut child, "25".as_bytes());
 
     assert_eq!(
-        child
-            .wait_with_output()
-            .expect("Process did not end after right number was given")
-            .stdout,
+        get_stdout(child),
         "Guess the number!\nPlease input your guess.\nYou guessed: 25\nYou win!\n".as_bytes()
     );
 }
@@ -93,4 +80,18 @@ where
         .args(args)
         .output()
         .expect("Failed to run step_3_1")
+}
+
+fn write<'a, B: Into<&'a [u8]>>(child: &mut Child, buf: B) {
+    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+    stdin
+        .write_all(buf.into())
+        .expect("Failed to write to stdin");
+}
+
+fn get_stdout(child: Child) -> Vec<u8> {
+    child
+        .wait_with_output()
+        .expect("Process did not end after right number was given")
+        .stdout
 }
