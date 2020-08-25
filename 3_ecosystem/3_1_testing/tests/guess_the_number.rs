@@ -51,9 +51,7 @@ fn first_guess() {
 
     {
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        stdin
-            .write_all("5".as_bytes())
-            .expect("Failed to write to stdin");
+        stdin.write_all(b"5").expect("Failed to write to stdin");
     }
 
     assert_eq!(
@@ -62,5 +60,28 @@ fn first_guess() {
             .expect("Process did not end after right number was given")
             .stdout,
         "Guess the number!\nPlease input your guess.\nYou guessed: 5\nYou win!\n".as_bytes()
+    );
+}
+
+#[test]
+fn trailing_whitespaces() {
+    let mut child = Command::new("cargo")
+        .args(&["run", "-p", "step_3_1", "--", "   25"])
+        .stdout(Stdio::piped())
+        .stdin(Stdio::piped())
+        .spawn()
+        .expect("Failed to run step_3_1");
+
+    {
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        stdin.write_all(b"25").expect("Failed to write to stdin");
+    }
+
+    assert_eq!(
+        child
+            .wait_with_output()
+            .expect("Process did not end after right number was given")
+            .stdout,
+        "Guess the number!\nPlease input your guess.\nYou guessed: 25\nYou win!\n".as_bytes()
     );
 }
