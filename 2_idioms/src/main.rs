@@ -1,3 +1,6 @@
+use crate::store::coin::Coin;
+use crate::store::VendingMachine;
+
 mod store {
     use std::borrow::Cow;
     use std::collections::btree_map::Entry;
@@ -123,7 +126,7 @@ mod store {
                 .coins
                 .entry(coin)
                 .and_modify(|amount| *amount += 1)
-                .or_default();
+                .or_insert(1);
         }
 
         pub fn add_coins<I: IntoIterator<Item = Coin>>(machine: &mut Self, coins: I) {
@@ -273,11 +276,11 @@ mod store {
                 map.remove(key);
             }
 
-            unimplemented!()
+            Ok(())
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Eq, PartialEq)]
     pub enum VendingMachineError {
         SameProductNameDifferentPrice,
         OutOfFreeSpace,
@@ -336,9 +339,62 @@ mod store {
 
             assert!(VendingMachine::calc_rest(125, Cow::Borrowed(&machine_coins)).is_none());
         }
+
+        #[test]
+        fn vending_machine() {
+            let mut machine = VendingMachine::new(5);
+
+            VendingMachine::add_products(
+                &mut machine,
+                vec![("Snickers", 5), ("Snickers", 5), ("Mars", 7), ("Bounty", 3)],
+            )
+            .unwrap();
+
+            assert_eq!(
+                VendingMachine::add_product(&mut machine, "Mars", 5),
+                Err(VendingMachineError::SameProductNameDifferentPrice)
+            );
+
+            VendingMachine::add_product(&mut machine, "Mars", 7).unwrap();
+
+            assert_eq!(
+                VendingMachine::add_product(&mut machine, "Snickers", 5),
+                Err(VendingMachineError::OutOfFreeSpace)
+            );
+
+            VendingMachine::add_coins(&mut machine, vec![Coin::Two, Coin::One, Coin::Two]);
+
+            let mut machine = machine.choose("Snickers").unwrap();
+
+            machine.insert_coin(Coin::Ten);
+
+            let (machine, product, rest) = machine.get_product().unwrap();
+
+            assert_eq!(&rest[..], &[Coin::Two, Coin::Two, Coin::One]);
+            assert_eq!(product.name, "Snickers");
+            assert_eq!(product.price, 5);
+            assert!(machine.coins.is_empty());
+        }
     }
 }
 
 fn main() {
-    println!("Implement me!");
+    let mut machine = VendingMachine::new(5);
+
+    VendingMachine::add_products(
+        &mut machine,
+        vec![("Snickers", 5), ("Snickers", 5), ("Mars", 7), ("Bounty", 3)],
+    )
+    .unwrap();
+    VendingMachine::add_product(&mut machine, "Mars", 7).unwrap();
+    VendingMachine::add_coins(&mut machine, vec![Coin::Two, Coin::One, Coin::Two]);
+
+    let mut machine = machine.choose("Snickers").unwrap();
+
+    machine.insert_coin(Coin::Ten);
+
+    let (machine, product, rest) = machine.get_product().unwrap();
+
+    dbg!(product);
+    dbg!(rest);
 }
