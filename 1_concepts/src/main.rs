@@ -125,11 +125,11 @@ mod list {
         type IntoIter = ListIter<T>;
 
         fn into_iter(self) -> Self::IntoIter {
-            ListIter(self.first.clone())
+            ListIter(self.first.as_ref().map(|arc| Arc::downgrade(arc)))
         }
     }
 
-    pub struct ListIter<T>(Option<Arc<Mutex<Node<T>>>>);
+    pub struct ListIter<T>(Option<Weak<Mutex<Node<T>>>>);
 
     impl<T> Iterator for ListIter<T> {
         type Item = ListItem<T>;
@@ -138,7 +138,9 @@ mod list {
             let mut next = self
                 .0
                 .as_ref()
-                .and_then(|node| node.lock().unwrap().next.clone());
+                .and_then(|node| node.upgrade())
+                .and_then(|node| (node.lock().unwrap().next.clone()))
+                .map(|node| Arc::downgrade(&node));
 
             std::mem::swap(&mut self.0, &mut next);
 
@@ -146,11 +148,16 @@ mod list {
         }
     }
 
-    pub struct ListItem<T>(Arc<Mutex<Node<T>>>);
+    pub struct ListItem<T>(Weak<Mutex<Node<T>>>);
 
     impl<T> ListItem<T> {
-        pub fn peek<E, F: FnOnce(&mut T) -> E>(&self, f: F) -> E {
-            f(&mut self.0.lock().unwrap().data)
+        pub fn peek<E, F: FnOnce(&mut T) -> E>(&self, f: F) -> Option<E> {
+            let arc = self.0.upgrade();
+
+            if let Some(arc) = arc {
+                return Some(f(&mut arc.lock().unwrap().data));
+            }
+            None
         }
     }
 
@@ -215,7 +222,7 @@ mod list {
             }
 
             for item in &list {
-                assert!(item.peek(|node| *node == 3));
+                assert!(item.peek(|node| *node == 3).unwrap());
             }
         }
     }
@@ -229,6 +236,6 @@ fn main() {
     list.push_back(2);
 
     for (index, item) in list.iter().enumerate() {
-        assert!(item.peek(|val| *val == index));
+        assert!(item.peek(|val| *val == index).unwrap());
     }
 }
