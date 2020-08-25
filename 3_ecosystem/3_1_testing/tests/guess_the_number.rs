@@ -34,16 +34,29 @@ fn negative_number() {
 }
 
 #[test]
-fn not_a_number_in_env_args() {
+fn non_number_in_env_args() {
     let output = get_output(&["not_a_number"]);
     assert!(!output.status.success());
+}
+
+#[test]
+fn non_number_in_stdin() {
+    let mut child = spawn_child(&["123"]);
+
+    write(&mut child, &b"non_number\n"[..]);
+    write(&mut child, &b"123"[..]);
+
+    assert_eq!(
+        get_stdout(child),
+        "Guess the number!\nPlease input your guess.\nPlease input your guess.\nYou guessed: 123\nYou win!\n".as_bytes()
+    );
 }
 
 #[test]
 fn first_guess() {
     let mut child = spawn_child(&["5"]);
 
-    write(&mut child, "5".as_bytes());
+    write(&mut child, &b"5"[..]);
     assert_eq!(
         get_stdout(child),
         "Guess the number!\nPlease input your guess.\nYou guessed: 5\nYou win!\n".as_bytes()
@@ -54,7 +67,7 @@ fn first_guess() {
 fn trailing_whitespaces() {
     let mut child = spawn_child(&["    25"]);
 
-    write(&mut child, "25".as_bytes());
+    write(&mut child, &b"25"[..]);
 
     assert_eq!(
         get_stdout(child),
