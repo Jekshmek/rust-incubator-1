@@ -269,6 +269,9 @@ version = "0.1.0"
 [[package]]
 name = "step_3_1"
 version = "0.1.0"
+dependencies = [
+ "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "step_3_10"

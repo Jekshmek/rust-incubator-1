@@ -101,6 +101,45 @@ fn too_big() {
     );
 }
 
+#[test]
+fn random_input() {
+    let rand_array: [u32; 32] = rand::random();
+    let guess_val: u32 = rand::random();
+    let mut expected_result = "Guess the number!\n".to_string();
+
+    let mut child = spawn_child(&[guess_val.to_string()]);
+
+    rand_array
+        .iter()
+        .filter(|num| **num != guess_val)
+        .for_each(|num| {
+            let str = num.to_string() + "\n";
+            write(&mut child, str.as_bytes());
+
+            let expected_str = if *num > guess_val {
+                format!("Please input your guess.\nYou guessed: {}\nToo big!\n", num)
+            } else {
+                format!(
+                    "Please input your guess.\nYou guessed: {}\nToo small!\n",
+                    num
+                )
+            };
+
+            expected_result.push_str(expected_str.as_str());
+        });
+
+    write(&mut child, guess_val.to_string().as_bytes());
+    expected_result.push_str(
+        format!(
+            "Please input your guess.\nYou guessed: {}\nYou win!\n",
+            guess_val
+        )
+        .as_str(),
+    );
+
+    assert_eq!(get_stdout(child), expected_result.as_bytes());
+}
+
 fn spawn_child<I, S>(args: I) -> Child
 where
     I: IntoIterator<Item = S>,
