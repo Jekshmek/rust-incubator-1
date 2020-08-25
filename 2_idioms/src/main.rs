@@ -95,7 +95,7 @@ mod store {
             } else {
                 machine
                     .products
-                    .insert(name, PriceAndAmount { price, amount: 0 });
+                    .insert(name, PriceAndAmount { price, amount: 1 });
                 machine.space_left -= 1;
             }
 
@@ -200,6 +200,10 @@ mod store {
                     self.products.remove(&*product_name);
                 }
 
+                for coin in &rest_coins {
+                    Self::decrement_amount(coin, &mut self.coins).unwrap();
+                }
+
                 return Ok((
                     VendingMachine {
                         products: self.products,
@@ -232,11 +236,12 @@ mod store {
                 return Some(Vec::clone(&rest_coins));
             }
 
+            let mut coins_copy = coins.clone();
             if cur_sum < rest {
-                if let Some((coin, amount)) = coins.clone().to_mut().iter_mut().rev().next() {
+                if let Some((coin, amount)) = coins.to_mut().iter_mut().rev().next() {
                     return if *amount == 0 {
-                        coins.to_mut().remove(coin);
-                        Self::calc_rest_internal(rest, coins, cur_sum, rest_coins)
+                        coins_copy.to_mut().remove(coin);
+                        Self::calc_rest_internal(rest, coins_copy, cur_sum, rest_coins)
                     } else {
                         *amount -= 1;
 
@@ -244,14 +249,31 @@ mod store {
                         let mut new_rest_coins = rest_coins.clone();
                         new_rest_coins.to_mut().push(*coin);
 
-                        Self::calc_rest_internal(rest, coins.clone(), cur_sum, rest_coins).or_else(
-                            || Self::calc_rest_internal(rest, coins, new_sum, new_rest_coins),
-                        )
+                        Self::calc_rest_internal(rest, coins.clone(), new_sum, new_rest_coins)
+                            .or_else(|| Self::calc_rest_internal(rest, coins, cur_sum, rest_coins))
                     };
                 }
             }
 
             None
+        }
+
+        fn decrement_amount<K: Eq + Ord>(
+            key: &K,
+            map: &mut BTreeMap<K, usize>,
+        ) -> Result<(), VendingMachineError> {
+            let (_, amount) = map
+                .iter_mut()
+                .find(|(map_key, _)| **map_key == *key)
+                .ok_or(VendingMachineError::NoProduct)?;
+
+            *amount -= 1;
+
+            if *amount == 0 {
+                map.remove(key);
+            }
+
+            unimplemented!()
         }
     }
 
@@ -266,9 +288,11 @@ mod store {
 
     pub trait VendingMachineState: VendingMachineStateSecure {}
 
+    #[derive(Debug)]
     pub struct Ready;
     impl VendingMachineState for Ready {}
 
+    #[derive(Debug, Clone)]
     pub struct Paying<'a> {
         product: Product<'a>,
         payed: Vec<Coin>,
@@ -286,7 +310,32 @@ mod store {
 
     #[cfg(test)]
     mod tests {
-        // TODO: test everything
+        use super::*;
+
+        #[test]
+        fn calc_rest() {
+            let mut machine_coins = BTreeMap::new();
+
+            [(Coin::Fifty, 2), (Coin::Ten, 1), (Coin::Two, 7)]
+                .iter()
+                .for_each(|(coin, amount)| {
+                    machine_coins.insert(*coin, *amount);
+                });
+
+            assert!(VendingMachine::calc_rest(0, Cow::Borrowed(&machine_coins))
+                .unwrap()
+                .is_empty());
+
+            let rest = VendingMachine::calc_rest(14, Cow::Borrowed(&machine_coins)).unwrap();
+            assert_eq!(&rest[..], &[Coin::Ten, Coin::Two, Coin::Two]);
+
+            let rest = VendingMachine::calc_rest(13, Cow::Borrowed(&machine_coins));
+            assert_eq!(rest, None);
+
+            VendingMachine::calc_rest(124, Cow::Borrowed(&machine_coins)).unwrap();
+
+            assert!(VendingMachine::calc_rest(125, Cow::Borrowed(&machine_coins)).is_none());
+        }
     }
 }
 
