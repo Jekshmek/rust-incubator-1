@@ -19,3 +19,13 @@ fn too_big_number() {
 
     assert!(!output.status.success());
 }
+
+#[test]
+fn negative_number() {
+    let output = Command::new("cargo")
+        .args(&["run", "-p", "step_3_1", "--", "-5"])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+}
