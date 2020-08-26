@@ -12,8 +12,21 @@ macro_rules! btreemap_decl {
 }
 
 fn main() {
-    let map_decl = btreemap_decl![(1, "one"), (2, "two")];
-    let map_proc = btreemap_proc![(1, "one"), (2, "two"),];
+    let map_decl = btreemap_decl![
+        (1, "one"),
+        (2, "two"),
+        (3, "three"),
+        (4, "four"),
+        (5, "five"),
+    ];
+
+    let map_proc = btreemap_proc![
+        (1, "one"),
+        (2, "two"),
+        (3, "three"),
+        (4, "four"),
+        (5, "five"),
+    ];
 
     dbg!(&map_proc);
 

@@ -42,19 +42,15 @@ impl Parse for Pairs {
 pub fn btreemap_proc(input: TokenStream) -> TokenStream {
     let Pairs { pairs } = parse_macro_input!(input as Pairs);
 
-    let mut keys: Vec<Expr> = Vec::with_capacity(pairs.len());
-    let mut values: Vec<Expr> = Vec::with_capacity(pairs.len());
-
-    for pair in pairs {
-        keys.push(pair.first);
-        values.push(pair.second)
-    }
+    let inserts = pairs
+        .into_iter()
+        .map(|pair| (pair.first, pair.second))
+        .map(|(key, value)| quote! { map.insert(#key, #value); })
+        .collect::<Vec<_>>();
 
     let res = quote! {{
         let mut map = std::collections::BTreeMap::new();
-        #(
-            map.insert(#keys, #values);
-        )*
+        #(#inserts)*
         map
     }};
 
