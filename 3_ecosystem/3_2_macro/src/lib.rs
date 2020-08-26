@@ -2,35 +2,32 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 
+use quote::quote;
 use syn::parse::{Parse, ParseBuffer, Result};
 use syn::punctuated::Punctuated;
-use syn::{parenthesized, parse_macro_input, token, Expr, Token};
+use syn::{parenthesized, parse_macro_input, Expr};
 
-use quote::quote;
-
-/// Parses (Expr, Expr)
+/// Parses `(Expr, Expr)`
 struct Pair {
-    _paren: token::Paren,
     first: Expr,
-    _comma: Token![,],
     second: Expr,
 }
 
 impl Parse for Pair {
     fn parse<'a>(input: &'a ParseBuffer<'a>) -> Result<Self> {
         let content;
-        Ok(Pair {
-            _paren: parenthesized!(content in input),
-            first: content.parse()?,
-            _comma: content.parse()?,
-            second: content.parse()?,
-        })
+        parenthesized!(content in input);
+        let first = content.parse()?;
+        content.parse::<syn::Token![,]>()?;
+        let second = content.parse()?;
+
+        Ok(Pair { first, second })
     }
 }
 
-/// Parses (Expr, Expr),*
+/// Parses `(Expr, Expr),*`
 struct Pairs {
-    pairs: Punctuated<Pair, Token![,]>,
+    pairs: Punctuated<Pair, syn::Token![,]>,
 }
 
 impl Parse for Pairs {
@@ -53,13 +50,11 @@ pub fn btreemap_proc(input: TokenStream) -> TokenStream {
         values.push(pair.second)
     }
 
-    let res = quote! { {
+    let res = quote! {{
         let mut map = std::collections::BTreeMap::new();
-
         #(
             map.insert(#keys, #values);
         )*
-
         map
     }};
 
