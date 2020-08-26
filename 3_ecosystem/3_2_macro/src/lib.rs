@@ -44,8 +44,7 @@ pub fn btreemap_proc(input: TokenStream) -> TokenStream {
 
     let inserts = pairs
         .into_iter()
-        .map(|pair| (pair.first, pair.second))
-        .map(|(key, value)| quote! { map.insert(#key, #value); })
+        .map(|Pair { first, second }| quote! { map.insert(#first, #second); })
         .collect::<Vec<_>>();
 
     let res = quote! {{
