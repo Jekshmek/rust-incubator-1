@@ -6,85 +6,52 @@ fn main() {
 }
 
 mod parser {
+    use crate::Sign;
     use nom::branch::alt;
     use nom::bytes::complete::{tag, take_while};
     use nom::character::complete::{alpha1, anychar, char, one_of};
     use nom::combinator::{opt, peek};
     use nom::error::ErrorKind;
-    use nom::sequence::preceded;
+    use nom::number::complete::be_u64;
+    use nom::sequence::{pair, preceded, terminated};
     use nom::IResult;
 
-    /// Matches `.?`
-    fn fill(i: &str) -> IResult<&str, Option<char>> {
-        opt(anychar)(i)
-    }
-
     /// Matches `[<>^]?`
-    fn align(i: &str) -> IResult<&str, Option<char>> {
-        opt(one_of("<>^"))(i)
+    fn align(i: &str) -> IResult<&str, char> {
+        one_of("<>^")(i)
     }
 
     /// Matches `[+-]?`
-    fn sign(i: &str) -> IResult<&str, Option<char>> {
-        opt(one_of("+-"))(i)
-    }
-
-    /// Matches `#?`
-    fn hash(i: &str) -> IResult<&str, Option<char>> {
-        opt(char('#'))(i)
-    }
-
-    /// Matches `0?`
-    fn zero(i: &str) -> IResult<&str, Option<char>> {
-        opt(char('0'))(i)
-    }
-
-    /// Matches `[a-zA-Z0-9_]?`
-    fn is_identifier_char(c: char) -> bool {
-        c.is_alphanumeric() || c == '_'
-    }
-
-    /// Peeks `_[a-zA-Z0-9_]`
-    fn is_underscore_then_ident_char(i: &str) -> IResult<&str, ()> {
-        if i.len() < 2 {
-            return Err(nom::Err::Error((i, ErrorKind::IsNot)));
-        }
-
-        if i.starts_with('_') && is_identifier_char(i.chars().nth(1).unwrap()) {
-            Ok((i, ()))
-        } else {
-            Err(nom::Err::Error((i, ErrorKind::IsNot)))
-        }
-    }
-
-    /// Matches `(([a-zA-Z][a-zA-Z0-9_]*)|(_[a-zA-Z0-9_]+))`
-    fn identifier(i: &str) -> IResult<&str, &str> {
-        // Matches [a-zA-Z][a-zA-Z0-9_]*
-        let alpha = preceded(peek(alpha1), take_while(is_identifier_char));
-
-        // Matches _[a-zA-Z0-9_]+
-        let underscore = preceded(
-            is_underscore_then_ident_char,
-            take_while(is_identifier_char),
-        );
-
-        alt((alpha, underscore))(i)
+    fn sign(i: &str) -> IResult<&str, Sign> {
+        one_of("+-")(i).map(|(rest, s)| {
+            (
+                rest,
+                match s {
+                    '+' => Sign::Plus,
+                    '-' => Sign::Minus,
+                    _ => unreachable!(),
+                },
+            )
+        })
     }
 
     fn is_digit_char(c: char) -> bool {
         c.is_ascii_digit()
     }
 
-    fn integer(i: &str) -> IResult<&str, &str> {
+    fn integer(i: &str) -> IResult<&str, usize> {
         // Matches [1-9][0-9]*
         let one = preceded(peek(one_of("123456789")), take_while(is_digit_char));
 
-        alt((tag("0"), one))(i)
+        alt((tag("0"), one))(i).and_then(|(rest, i)| {
+            i.parse::<usize>()
+                .map(|i| (rest, i))
+                .map_err(|e| nom::Err::Error((rest, ErrorKind::IsNot)))
+        })
     }
 
-    /// Matches `integer | identifier`
-    fn argument(i: &str) -> IResult<&str, &str> {
-        alt((identifier, integer))(i)
+    fn parameter(i: &str) -> IResult<&str, usize> {
+        terminated(integer, char('$'))(i)
     }
 
     #[cfg(test)]
@@ -92,50 +59,26 @@ mod parser {
         use super::*;
 
         #[test]
-        fn fill_test() {
-            assert_eq!(fill("abc"), Ok(("bc", Some('a'))));
-            assert_eq!(fill(""), Ok(("", None)));
-        }
-
-        #[test]
         fn align_test() {
-            assert_eq!(align("<>ab"), Ok((">ab", Some('<'))));
-            assert_eq!(align("ab"), Ok(("ab", None)));
+            assert_eq!(align("<>ab"), Ok((">ab", '<')));
+            assert_eq!(align("ab"), Err(nom::Err::Error(("ab", ErrorKind::OneOf))));
         }
 
         #[test]
         fn sign_test() {
-            assert_eq!(sign("+-ab"), Ok(("-ab", Some('+'))));
-            assert_eq!(sign("ab"), Ok(("ab", None)));
-        }
-
-        #[test]
-        fn hash_test() {
-            assert_eq!(hash("##ab"), Ok(("#ab", Some('#'))));
-            assert_eq!(hash("ab"), Ok(("ab", None)));
-        }
-
-        #[test]
-        fn zero_test() {
-            assert_eq!(zero("00ab"), Ok(("0ab", Some('0'))));
-            assert_eq!(zero("ab"), Ok(("ab", None)));
-        }
-
-        #[test]
-        fn identifier_test() {
-            assert_eq!(identifier("ident_0"), Ok(("", "ident_0")));
-            assert_eq!(identifier("_ident_0*"), Ok(("*", "_ident_0")));
-            assert_eq!(identifier("__"), Ok(("", "__")));
-            assert_eq!(
-                identifier("_"),
-                Err(nom::Err::Error(("_", ErrorKind::IsNot)))
-            );
+            assert_eq!(sign("+-ab"), Ok(("-ab", Sign::Plus)));
+            assert_eq!(sign("-ab"), Ok(("ab", Sign::Minus)));
+            assert_eq!(sign("ab"), Err(nom::Err::Error(("ab", ErrorKind::OneOf))));
         }
 
         #[test]
         fn integer_test() {
-            assert_eq!(integer("123"), Ok(("", "123")));
-            assert_eq!(integer("01"), Ok(("1", "0")));
+            assert_eq!(integer("123"), Ok(("", 123)));
+            assert_eq!(integer("01"), Ok(("1", 0)));
+            assert_eq!(
+                integer("ab"),
+                Err(nom::Err::Error(("ab", ErrorKind::OneOf)))
+            );
         }
     }
 }
