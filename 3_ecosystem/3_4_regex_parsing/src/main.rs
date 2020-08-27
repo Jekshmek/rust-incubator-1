@@ -5,7 +5,124 @@ fn main() {
     println!("Implement me!");
 }
 
-fn parse_regex(input: &str) -> (Option<Sign>, Option<usize>, Option<Precision>) {
+mod parser {
+    use nom::branch::alt;
+    use nom::bytes::complete::{take_while, take_while1};
+    use nom::character::complete::{alpha1, anychar, char, one_of};
+    use nom::character::is_alphanumeric;
+    use nom::combinator::{opt, peek};
+    use nom::error::ErrorKind;
+    use nom::sequence::preceded;
+    use nom::IResult;
+
+    /// Matches `.?`
+    fn fill(i: &str) -> IResult<&str, Option<char>> {
+        opt(anychar)(i)
+    }
+
+    /// Matches `[<>^]?`
+    fn align(i: &str) -> IResult<&str, Option<char>> {
+        opt(one_of("<>^"))(i)
+    }
+
+    /// Matches `[+-]?`
+    fn sign(i: &str) -> IResult<&str, Option<char>> {
+        opt(one_of("+-"))(i)
+    }
+
+    /// Matches `#?`
+    fn hash(i: &str) -> IResult<&str, Option<char>> {
+        opt(char('#'))(i)
+    }
+
+    /// Matches `0?`
+    fn zero(i: &str) -> IResult<&str, Option<char>> {
+        opt(char('0'))(i)
+    }
+
+    /// Matches `[a-zA-Z0-9_]?`
+    fn is_identifier_char(c: u8) -> bool {
+        is_alphanumeric(c) || c == b'_'
+    }
+
+    /// Peeks `_[a-zA-Z0-9_]`
+    fn is_underscore_then_ident_char(i: &[u8]) -> IResult<&[u8], ()> {
+        if i.len() < 2 {
+            return Err(nom::Err::Error((i, ErrorKind::IsNot)));
+        }
+
+        if i[0] == b'_' && is_identifier_char(i[1]) {
+            Ok((i, ()))
+        } else {
+            Err(nom::Err::Error((i, ErrorKind::IsNot)))
+        }
+    }
+
+    /// Matches `(([a-zA-Z][a-zA-Z0-9_]*)|(_[a-zA-Z0-9_]+))?`
+    fn identifier(i: &str) -> IResult<&str, Option<&str>> {
+        // Matches [a-zA-Z][a-zA-Z0-9_]*
+        let alpha = preceded(peek(alpha1), take_while(is_identifier_char));
+        // Matches _[a-zA-Z0-9_]+
+        let underscore = preceded(
+            is_underscore_then_ident_char,
+            take_while(is_identifier_char),
+        );
+
+        opt(alt((alpha, underscore)))(i.as_bytes())
+            .map(|(rest, parsed)| {
+                (
+                    std::str::from_utf8(rest).unwrap(),
+                    parsed.map(|parsed| std::str::from_utf8(parsed).unwrap()),
+                )
+            })
+            .map_err(|err| err.map_input(|bytes| std::str::from_utf8(bytes).unwrap()))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn fill_test() {
+            assert_eq!(fill("abc"), Ok(("bc", Some('a'))));
+            assert_eq!(fill(""), Ok(("", None)));
+        }
+
+        #[test]
+        fn align_test() {
+            assert_eq!(align("<>ab"), Ok((">ab", Some('<'))));
+            assert_eq!(align("ab"), Ok(("ab", None)));
+        }
+
+        #[test]
+        fn sign_test() {
+            assert_eq!(sign("+-ab"), Ok(("-ab", Some('+'))));
+            assert_eq!(sign("ab"), Ok(("ab", None)));
+        }
+
+        #[test]
+        fn hash_test() {
+            assert_eq!(hash("##ab"), Ok(("#ab", Some('#'))));
+            assert_eq!(hash("ab"), Ok(("ab", None)));
+        }
+
+        #[test]
+        fn zero_test() {
+            assert_eq!(zero("00ab"), Ok(("0ab", Some('0'))));
+            assert_eq!(zero("ab"), Ok(("ab", None)));
+        }
+
+        #[test]
+        fn identifier_test() {
+            assert_eq!(identifier("ident_0"), Ok(("", Some("ident_0"))));
+            assert_eq!(identifier("_ident_0*"), Ok(("*", Some("_ident_0"))));
+            assert_eq!(identifier("__"), Ok(("", Some("__"))));
+            assert_eq!(identifier("_"), Ok(("_", None)));
+        }
+    }
+}
+
+fn parse(input: &str) -> (Option<Sign>, Option<usize>, Option<Precision>) {
     static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"(.?[<>^])?(?P<sign>[+-])?#?0?(?P<width>(((0|[1-9][0-9]*)|([A-Za-z]\w*))\$)|(0|[1-9][0-9]*))?(\.(?P<precision>((((0|[1-9][0-9]*)|([A-Za-z]\w*))\$)|(0|[1-9][0-9]*))|\*))?(([A-Za-z]\w*)|\?)?").unwrap()
     });
@@ -73,22 +190,22 @@ mod spec {
             ("-.1$x", Some(Sign::Minus)),
             ("a^#043.8?", None),
         ] {
-            let (sign, ..) = parse_regex(input);
+            let (sign, ..) = parse(input);
             assert_eq!(sign, expected);
         }
     }
 
     #[test]
     fn parses_width() {
-        for (input, expected) in vec![
+        for (input, expected) in &[
             ("", None),
             (">8.*", Some(8)),
             (">+8.*", Some(8)),
             ("-.1$x", None),
             ("a^#043.8?", Some(43)),
         ] {
-            let (_, width, _) = parse_regex(input);
-            assert_eq!(width, expected);
+            let (_, width, _) = parse(input);
+            assert_eq!(width, *expected);
         }
     }
 
@@ -101,7 +218,7 @@ mod spec {
             ("-.1$x", Some(Precision::Argument(1))),
             ("a^#043.8?", Some(Precision::Integer(8))),
         ] {
-            let (_, _, precision) = parse_regex(input);
+            let (_, _, precision) = parse(input);
             assert_eq!(precision, expected);
         }
     }
