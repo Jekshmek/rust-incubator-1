@@ -7,7 +7,7 @@ fn main() {
 
 mod parser {
     use nom::branch::alt;
-    use nom::bytes::complete::{take_while, take_while1};
+    use nom::bytes::complete::take_while;
     use nom::character::complete::{alpha1, anychar, char, one_of};
     use nom::character::is_alphanumeric;
     use nom::combinator::{opt, peek};
@@ -58,8 +58,8 @@ mod parser {
         }
     }
 
-    /// Matches `(([a-zA-Z][a-zA-Z0-9_]*)|(_[a-zA-Z0-9_]+))?`
-    fn identifier(i: &str) -> IResult<&str, Option<&str>> {
+    /// Matches `(([a-zA-Z][a-zA-Z0-9_]*)|(_[a-zA-Z0-9_]+))`
+    fn identifier(i: &str) -> IResult<&str, &str> {
         // Matches [a-zA-Z][a-zA-Z0-9_]*
         let alpha = preceded(peek(alpha1), take_while(is_identifier_char));
         // Matches _[a-zA-Z0-9_]+
@@ -68,11 +68,11 @@ mod parser {
             take_while(is_identifier_char),
         );
 
-        opt(alt((alpha, underscore)))(i.as_bytes())
+        alt((alpha, underscore))(i.as_bytes())
             .map(|(rest, parsed)| {
                 (
                     std::str::from_utf8(rest).unwrap(),
-                    parsed.map(|parsed| std::str::from_utf8(parsed).unwrap()),
+                    std::str::from_utf8(parsed).unwrap(),
                 )
             })
             .map_err(|err| err.map_input(|bytes| std::str::from_utf8(bytes).unwrap()))
@@ -114,10 +114,13 @@ mod parser {
 
         #[test]
         fn identifier_test() {
-            assert_eq!(identifier("ident_0"), Ok(("", Some("ident_0"))));
-            assert_eq!(identifier("_ident_0*"), Ok(("*", Some("_ident_0"))));
-            assert_eq!(identifier("__"), Ok(("", Some("__"))));
-            assert_eq!(identifier("_"), Ok(("_", None)));
+            assert_eq!(identifier("ident_0"), Ok(("", "ident_0")));
+            assert_eq!(identifier("_ident_0*"), Ok(("*", "_ident_0")));
+            assert_eq!(identifier("__"), Ok(("", "__")));
+            assert_eq!(
+                identifier("_"),
+                Err(nom::Err::Error(("_", ErrorKind::IsNot)))
+            );
         }
     }
 }
