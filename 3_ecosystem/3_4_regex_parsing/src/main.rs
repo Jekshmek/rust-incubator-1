@@ -7,9 +7,8 @@ fn main() {
 
 mod parser {
     use nom::branch::alt;
-    use nom::bytes::complete::take_while;
+    use nom::bytes::complete::{tag, take_while};
     use nom::character::complete::{alpha1, anychar, char, one_of};
-    use nom::character::is_alphanumeric;
     use nom::combinator::{opt, peek};
     use nom::error::ErrorKind;
     use nom::sequence::preceded;
@@ -41,17 +40,17 @@ mod parser {
     }
 
     /// Matches `[a-zA-Z0-9_]?`
-    fn is_identifier_char(c: u8) -> bool {
-        is_alphanumeric(c) || c == b'_'
+    fn is_identifier_char(c: char) -> bool {
+        c.is_alphanumeric() || c == '_'
     }
 
     /// Peeks `_[a-zA-Z0-9_]`
-    fn is_underscore_then_ident_char(i: &[u8]) -> IResult<&[u8], ()> {
+    fn is_underscore_then_ident_char(i: &str) -> IResult<&str, ()> {
         if i.len() < 2 {
             return Err(nom::Err::Error((i, ErrorKind::IsNot)));
         }
 
-        if i[0] == b'_' && is_identifier_char(i[1]) {
+        if i.starts_with('_') && is_identifier_char(i.chars().nth(1).unwrap()) {
             Ok((i, ()))
         } else {
             Err(nom::Err::Error((i, ErrorKind::IsNot)))
@@ -62,20 +61,14 @@ mod parser {
     fn identifier(i: &str) -> IResult<&str, &str> {
         // Matches [a-zA-Z][a-zA-Z0-9_]*
         let alpha = preceded(peek(alpha1), take_while(is_identifier_char));
+
         // Matches _[a-zA-Z0-9_]+
         let underscore = preceded(
             is_underscore_then_ident_char,
             take_while(is_identifier_char),
         );
 
-        alt((alpha, underscore))(i.as_bytes())
-            .map(|(rest, parsed)| {
-                (
-                    std::str::from_utf8(rest).unwrap(),
-                    std::str::from_utf8(parsed).unwrap(),
-                )
-            })
-            .map_err(|err| err.map_input(|bytes| std::str::from_utf8(bytes).unwrap()))
+        alt((alpha, underscore))(i)
     }
 
     #[cfg(test)]
