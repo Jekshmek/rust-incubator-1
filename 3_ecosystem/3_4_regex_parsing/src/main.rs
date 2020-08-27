@@ -71,6 +71,22 @@ mod parser {
         alt((alpha, underscore))(i)
     }
 
+    fn is_digit_char(c: char) -> bool {
+        c.is_ascii_digit()
+    }
+
+    fn integer(i: &str) -> IResult<&str, &str> {
+        // Matches [1-9][0-9]*
+        let one = preceded(peek(one_of("123456789")), take_while(is_digit_char));
+
+        alt((tag("0"), one))(i)
+    }
+
+    /// Matches `integer | identifier`
+    fn argument(i: &str) -> IResult<&str, &str> {
+        alt((identifier, integer))(i)
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -114,6 +130,12 @@ mod parser {
                 identifier("_"),
                 Err(nom::Err::Error(("_", ErrorKind::IsNot)))
             );
+        }
+
+        #[test]
+        fn integer_test() {
+            assert_eq!(integer("123"), Ok(("", "123")));
+            assert_eq!(integer("01"), Ok(("1", "0")));
         }
     }
 }
