@@ -6,19 +6,53 @@ fn main() {
 }
 
 mod parser {
-    use crate::Sign;
-    use nom::branch::alt;
-    use nom::bytes::complete::{tag, take_while};
-    use nom::character::complete::{alpha1, anychar, char, one_of};
-    use nom::combinator::{opt, peek};
-    use nom::error::ErrorKind;
-    use nom::number::complete::be_u64;
-    use nom::sequence::{pair, preceded, terminated};
-    use nom::IResult;
+    pub use crate::{Precision, Sign};
+
+    use nom::{
+        branch::alt,
+        bytes::complete::{tag, take_while},
+        character::complete::{alpha1, anychar, char, one_of},
+        combinator::{all_consuming, map, opt, peek},
+        error::ErrorKind,
+        sequence::{delimited, pair, preceded, terminated, tuple},
+        IResult,
+    };
 
     /// Matches `[<>^]?`
     fn align(i: &str) -> IResult<&str, char> {
         one_of("<>^")(i)
+    }
+
+    /// Matches `[a-zA-Z0-9_]?`
+    fn is_identifier_char(c: char) -> bool {
+        c.is_alphanumeric() || c == '_'
+    }
+
+    /// Peeks `_[a-zA-Z0-9_]`
+    fn is_underscore_then_ident_char(i: &str) -> IResult<&str, ()> {
+        if i.len() < 2 {
+            return Err(nom::Err::Error((i, ErrorKind::IsNot)));
+        }
+
+        if i.starts_with('_') && is_identifier_char(i.chars().nth(1).unwrap()) {
+            Ok((i, ()))
+        } else {
+            Err(nom::Err::Error((i, ErrorKind::IsNot)))
+        }
+    }
+
+    /// Matches `(([a-zA-Z][a-zA-Z0-9_]*)|(_[a-zA-Z0-9_]+))`
+    fn identifier(i: &str) -> IResult<&str, &str> {
+        // Matches [a-zA-Z][a-zA-Z0-9_]*
+        let alpha = preceded(peek(alpha1), take_while(is_identifier_char));
+
+        // Matches _[a-zA-Z0-9_]+
+        let underscore = preceded(
+            is_underscore_then_ident_char,
+            take_while(is_identifier_char),
+        );
+
+        alt((alpha, underscore))(i)
     }
 
     /// Matches `[+-]?`
@@ -39,6 +73,7 @@ mod parser {
         c.is_ascii_digit()
     }
 
+    /// Matches `0|[1-9][0-9]*`
     fn integer(i: &str) -> IResult<&str, usize> {
         // Matches [1-9][0-9]*
         let one = preceded(peek(one_of("123456789")), take_while(is_digit_char));
@@ -46,12 +81,60 @@ mod parser {
         alt((tag("0"), one))(i).and_then(|(rest, i)| {
             i.parse::<usize>()
                 .map(|i| (rest, i))
-                .map_err(|e| nom::Err::Error((rest, ErrorKind::IsNot)))
+                .map_err(|_| nom::Err::Error((rest, ErrorKind::IsNot)))
         })
     }
 
+    /// Matches [`integer`]`$`
     fn parameter(i: &str) -> IResult<&str, usize> {
         terminated(integer, char('$'))(i)
+    }
+
+    /// Matches [`parameter`] | [`integer`]
+    fn width(i: &str) -> IResult<&str, usize> {
+        alt((parameter, integer))(i)
+    }
+
+    /// Matches [`width`] | `*`
+    fn precision(i: &str) -> IResult<&str, Precision> {
+        alt((
+            map(parameter, Precision::Argument),
+            map(integer, Precision::Integer),
+            map(char('*'), |_| Precision::Asterisk),
+        ))(i)
+    }
+
+    type ParseOutput = (Option<Sign>, Option<usize>, Option<Precision>);
+
+    pub fn parse(i: &str) -> IResult<&str, ParseOutput> {
+        let fill = anychar;
+        let hash = char('#');
+        let zero = char('0');
+        let dot = char('.');
+        let type_ = alt((identifier, tag("?")));
+
+        all_consuming(terminated(
+            tuple((
+                delimited(
+                    opt(alt((preceded(fill, align), align))),
+                    opt(sign),
+                    pair(opt(hash), opt(zero)),
+                ),
+                opt(width),
+                opt(preceded(dot, precision)),
+            )),
+            opt(type_),
+        ))(i)
+    }
+
+    pub fn parse_without_err(i: &str) -> ParseOutput {
+        let parsed = parse(i);
+        dbg!(&parsed);
+        if let Ok((_, output)) = parsed {
+            return output;
+        }
+
+        (None, None, None)
     }
 
     #[cfg(test)]
@@ -69,6 +152,17 @@ mod parser {
             assert_eq!(sign("+-ab"), Ok(("-ab", Sign::Plus)));
             assert_eq!(sign("-ab"), Ok(("ab", Sign::Minus)));
             assert_eq!(sign("ab"), Err(nom::Err::Error(("ab", ErrorKind::OneOf))));
+        }
+
+        #[test]
+        fn identifier_test() {
+            assert_eq!(identifier("ident_0"), Ok(("", "ident_0")));
+            assert_eq!(identifier("_ident_0*"), Ok(("*", "_ident_0")));
+            assert_eq!(identifier("__"), Ok(("", "__")));
+            assert_eq!(
+                identifier("_"),
+                Err(nom::Err::Error(("_", ErrorKind::IsNot)))
+            );
         }
 
         #[test]
@@ -126,13 +220,13 @@ fn parse(input: &str) -> (Option<Sign>, Option<usize>, Option<Precision>) {
 }
 
 #[derive(Debug, PartialEq)]
-enum Sign {
+pub enum Sign {
     Plus,
     Minus,
 }
 
 #[derive(Debug, PartialEq)]
-enum Precision {
+pub enum Precision {
     Integer(usize),
     Argument(usize),
     Asterisk,
@@ -153,6 +247,9 @@ mod spec {
         ] {
             let (sign, ..) = parse(input);
             assert_eq!(sign, expected);
+
+            let (sign, ..) = parser::parse_without_err(input);
+            assert_eq!(sign, expected);
         }
     }
 
@@ -167,6 +264,9 @@ mod spec {
         ] {
             let (_, width, _) = parse(input);
             assert_eq!(width, *expected);
+
+            let (_, width, _) = parser::parse_without_err(input);
+            assert_eq!(width, *expected);
         }
     }
 
@@ -180,6 +280,9 @@ mod spec {
             ("a^#043.8?", Some(Precision::Integer(8))),
         ] {
             let (_, _, precision) = parse(input);
+            assert_eq!(precision, expected);
+
+            let (_, _, precision) = parser::parse_without_err(input);
             assert_eq!(precision, expected);
         }
     }
