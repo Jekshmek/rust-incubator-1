@@ -124,4 +124,55 @@ mod tests {
         s.insert(user.clone());
         assert_eq!(*s.get_user(0).unwrap(), user);
     }
+
+    #[test]
+    fn get_by_ids() {
+        let mut s = UserStorage::default();
+        let users = sample_users();
+
+        for user in users.clone() {
+            s.insert(user);
+        }
+
+        s.get_users(vec![0, 1, 2, 3, 4].into_iter())
+            .into_iter()
+            .zip(users.iter())
+            .for_each(|(u1, u2)| assert_eq!(*u1, *u2));
+    }
+
+    #[test]
+    fn get_by_nickname() {
+        let mut s = UserStorage::default();
+        let users = sample_users();
+
+        for user in users.clone() {
+            s.insert(user);
+        }
+
+        s.get_users_by_nickname("first")
+            .into_iter()
+            .zip(users.into_iter().filter(|u| u.nickname == "first"))
+            .for_each(|(u1, u2)| assert_eq!(*u1, u2))
+    }
+
+    fn sample_users() -> Vec<User> {
+        vec![
+            User {
+                id: 0,
+                nickname: "first".into(),
+            },
+            User {
+                id: 1,
+                nickname: "first".into(),
+            },
+            User {
+                id: 2,
+                nickname: "second".into(),
+            },
+            User {
+                id: 3,
+                nickname: "second".into(),
+            },
+        ]
+    }
 }
