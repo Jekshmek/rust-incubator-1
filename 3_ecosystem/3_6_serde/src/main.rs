@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use chrono::NaiveDateTime;
 use core::fmt;
 use serde::de::{Error, Visitor};
 use serde::export::Formatter;
@@ -12,6 +13,60 @@ struct PublicTariff<'a> {
     #[serde(deserialize_with = "de_duration", serialize_with = "se_duration")]
     duration: Duration,
     description: &'a str,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct PrivateTariff<'a> {
+    client_price: u64,
+    #[serde(deserialize_with = "de_duration", serialize_with = "se_duration")]
+    duration: Duration,
+    description: &'a str,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Gift<'a> {
+    id: u64,
+    price: u64,
+    description: &'a str,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Debug {
+    #[serde(deserialize_with = "de_duration", serialize_with = "se_duration")]
+    duration: Duration,
+    #[serde(deserialize_with = "de_datetime", serialize_with = "se_datetime")]
+    at: NaiveDateTime,
+}
+
+fn se_datetime<S>(d: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&d.format("%Y-%m-%dT%H:%M:%S%z").to_string())
+}
+
+fn de_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_str(DateTimeVisitor)
+}
+
+struct DateTimeVisitor;
+
+impl<'de> Visitor<'de> for DateTimeVisitor {
+    type Value = NaiveDateTime;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("datetime formatted %Y-%m-%dT%H:%M:%S%z")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        NaiveDateTime::parse_from_str(v, "%Y-%m-%dT%H:%M:%S%z").map_err(Error::custom)
+    }
 }
 
 fn se_duration<S>(d: &Duration, s: S) -> Result<S::Ok, S::Error>
@@ -46,7 +101,7 @@ impl<'de> Visitor<'de> for DurationVisitor {
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
     where
-        E: de::Error,
+        E: Error,
     {
         let discard_last1 = |s: &str| s[..s.len() - 1].parse::<u64>().map_err(de::Error::custom);
 
@@ -54,7 +109,7 @@ impl<'de> Visitor<'de> for DurationVisitor {
 
         match v {
             v if v.ends_with("ms") => discard_last2(v).map(Duration::from_millis),
-            v if v.ends_with("s") => discard_last2(v).map(Duration::from_secs),
+            v if v.ends_with('s') => discard_last2(v).map(Duration::from_secs),
             v if v.ends_with('m') => discard_last1(v).map(|m| Duration::from_secs(m * 60)),
             v if v.ends_with('h') => discard_last1(v).map(|m| Duration::from_secs(m * 3600)),
             _ => Err(de::Error::custom("Expected 'm', 'h' or 'ms'")),
@@ -87,9 +142,9 @@ mod tests {
     }
 
     #[test]
-    fn duration_de() {
-        let str = r#"{"duration":"1m"}"#;
-        let d: Dur = serde_json::from_str(str).unwrap();
+    fn duration_de_se() {
+        let mut str = r#"{"duration":"1m"}"#;
+        let mut d: Dur = serde_json::from_str(str).unwrap();
         assert_eq!(
             Dur {
                 duration: Duration::from_secs(60)
@@ -98,8 +153,8 @@ mod tests {
         );
         assert_eq!(str, serde_json::to_string(&d).unwrap());
 
-        let str = r#"{"duration":"3h"}"#;
-        let d: Dur = serde_json::from_str(str).unwrap();
+        str = r#"{"duration":"3h"}"#;
+        d = serde_json::from_str(str).unwrap();
         assert_eq!(
             Dur {
                 duration: Duration::from_secs(3 * 3600)
@@ -108,8 +163,8 @@ mod tests {
         );
         assert_eq!(str, serde_json::to_string(&d).unwrap());
 
-        let str = r#"{"duration":"300ms"}"#;
-        let d: Dur = serde_json::from_str(str).unwrap();
+        str = r#"{"duration":"300ms"}"#;
+        d = serde_json::from_str(str).unwrap();
         assert_eq!(
             Dur {
                 duration: Duration::from_millis(300)
