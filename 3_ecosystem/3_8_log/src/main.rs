@@ -1,8 +1,9 @@
+use std::fs::OpenOptions;
+
 use chrono::{SecondsFormat, Utc};
 use slog::{o, Drain, FnValue, Level::Warning, Logger, PushFnValue};
 use slog_json::JsonBuilder;
 use slog_scope::{error, info, warn};
-use std::fs::OpenOptions;
 
 fn add_kv<T: std::io::Write>(builder: JsonBuilder<T>) -> JsonBuilder<T> {
     builder.add_key_value(o!(
