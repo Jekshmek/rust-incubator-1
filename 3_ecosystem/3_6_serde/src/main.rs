@@ -38,6 +38,25 @@ struct Debug {
     at: NaiveDateTime,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Stream<'a> {
+    user_id: &'a str,
+    is_private: bool,
+    settings: u64,
+    shard_url: &'a str,
+    public_tariff: PublicTariff<'a>,
+    private_tariff: PrivateTariff<'a>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Request<'a> {
+    #[serde(rename = "type")]
+    type_: &'a str,
+    stream: Stream<'a>,
+    gifts: Vec<Gift<'a>>,
+    debug: Debug,
+}
+
 fn se_datetime<S>(d: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -119,17 +138,18 @@ impl<'de> Visitor<'de> for DurationVisitor {
 }
 
 fn main() {
-    let tariff: PublicTariff = serde_json::from_str(
-        r#"{
-            "id": 1,
-            "price": 100,
-            "duration": "12h",
-            "description": "test public tariff"
-        }"#,
-    )
-    .unwrap();
+    let mut path = std::env::current_dir()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    path += "\\3_ecosystem\\3_6_serde\\request.json";
 
-    dbg!(tariff);
+    let json = std::fs::read_to_string(path).unwrap();
+    let request: Request = serde_json::from_str(&json).unwrap();
+
+    println!("{}", serde_yaml::to_string(&request).unwrap());
+    println!("{}", toml::to_string(&request).unwrap());
 }
 
 #[cfg(test)]
