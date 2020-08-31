@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use core::fmt;
 use serde::de::{Error, Visitor};
 use serde::export::Formatter;
@@ -42,7 +42,8 @@ fn se_datetime<S>(d: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    s.serialize_str(&d.format("%Y-%m-%dT%H:%M:%S%z").to_string())
+    let dt = DateTime::<Utc>::from_utc(*d, Utc);
+    s.serialize_str(dt.to_rfc3339().as_str())
 }
 
 fn de_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
@@ -58,14 +59,14 @@ impl<'de> Visitor<'de> for DateTimeVisitor {
     type Value = NaiveDateTime;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("datetime formatted %Y-%m-%dT%H:%M:%S%z")
+        formatter.write_str("datetime formatted RFC 3339/ISO 8601")
     }
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
     where
         E: Error,
     {
-        NaiveDateTime::parse_from_str(v, "%Y-%m-%dT%H:%M:%S%z").map_err(Error::custom)
+        NaiveDateTime::parse_from_str(v, "%+").map_err(Error::custom)
     }
 }
 
@@ -134,11 +135,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::NaiveDate;
 
     #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
     struct Dur {
         #[serde(deserialize_with = "de_duration", serialize_with = "se_duration")]
         duration: Duration,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+    struct Dt {
+        #[serde(deserialize_with = "de_datetime", serialize_with = "se_datetime")]
+        datetime: NaiveDateTime,
     }
 
     #[test]
@@ -172,5 +180,20 @@ mod tests {
             d
         );
         assert_eq!(str, serde_json::to_string(&d).unwrap());
+    }
+
+    #[test]
+    fn datetime_de_se() {
+        let str = r#"{"datetime":"2019-06-28T08:35:46+00:00"}"#;
+        let dt: Dt = serde_json::from_str(str).unwrap();
+
+        assert_eq!(
+            Dt {
+                datetime: NaiveDate::from_ymd(2019, 06, 28).and_hms(8, 35, 46),
+            },
+            dt
+        );
+
+        assert_eq!(str, serde_json::to_string(&dt).unwrap());
     }
 }
