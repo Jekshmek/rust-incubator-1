@@ -2,9 +2,11 @@ use std::time::Duration;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use core::fmt;
-use serde::de::{Error, Visitor};
-use serde::export::Formatter;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::{Error, Visitor},
+    export::Formatter,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PublicTariff<'a> {
@@ -123,16 +125,16 @@ impl<'de> Visitor<'de> for DurationVisitor {
     where
         E: Error,
     {
-        let discard_last1 = |s: &str| s[..s.len() - 1].parse::<u64>().map_err(de::Error::custom);
+        let discard_last1 = |s: &str| s[..s.len() - 1].parse::<u64>().map_err(Error::custom);
 
-        let discard_last2 = |s: &str| s[..s.len() - 2].parse::<u64>().map_err(de::Error::custom);
+        let discard_last2 = |s: &str| s[..s.len() - 2].parse::<u64>().map_err(Error::custom);
 
         match v {
             v if v.ends_with("ms") => discard_last2(v).map(Duration::from_millis),
             v if v.ends_with('s') => discard_last2(v).map(Duration::from_secs),
             v if v.ends_with('m') => discard_last1(v).map(|m| Duration::from_secs(m * 60)),
             v if v.ends_with('h') => discard_last1(v).map(|m| Duration::from_secs(m * 3600)),
-            _ => Err(de::Error::custom("Expected 'm', 'h' or 'ms'")),
+            _ => Err(Error::custom("Expected 'm', 'h' or 'ms'")),
         }
     }
 }
@@ -209,7 +211,7 @@ mod tests {
 
         assert_eq!(
             Dt {
-                datetime: NaiveDate::from_ymd(2019, 06, 28).and_hms(8, 35, 46),
+                datetime: NaiveDate::from_ymd(2019, 6, 28).and_hms(8, 35, 46),
             },
             dt
         );
