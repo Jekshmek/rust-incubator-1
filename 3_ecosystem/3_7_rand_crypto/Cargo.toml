@@ -8,3 +8,4 @@ publish = false
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 sha3 = "0.9.1"
+argonautica = "0.2.0"
