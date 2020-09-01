@@ -9,27 +9,27 @@ use serde::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct PublicTariff<'a> {
+struct PublicTariff {
     id: u64,
     price: u64,
     #[serde(deserialize_with = "de_duration", serialize_with = "se_duration")]
     duration: Duration,
-    description: &'a str,
+    description: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct PrivateTariff<'a> {
+struct PrivateTariff {
     client_price: u64,
     #[serde(deserialize_with = "de_duration", serialize_with = "se_duration")]
     duration: Duration,
-    description: &'a str,
+    description: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Gift<'a> {
+struct Gift {
     id: u64,
     price: u64,
-    description: &'a str,
+    description: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -41,21 +41,20 @@ struct Debug {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Stream<'a> {
-    user_id: &'a str,
+struct Stream {
+    user_id: String,
     is_private: bool,
     settings: u64,
-    shard_url: &'a str,
-    public_tariff: PublicTariff<'a>,
-    private_tariff: PrivateTariff<'a>,
+    shard_url: String,
+    public_tariff: PublicTariff,
+    private_tariff: PrivateTariff,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Request<'a> {
-    #[serde(rename = "type")]
-    type_: &'a str,
-    stream: Stream<'a>,
-    gifts: Vec<Gift<'a>>,
+struct Request {
+    r#type: String,
+    stream: Stream,
+    gifts: Vec<Gift>,
     debug: Debug,
 }
 
