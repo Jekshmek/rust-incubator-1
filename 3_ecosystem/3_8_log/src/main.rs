@@ -47,9 +47,8 @@ fn main() {
         .open("access.log")
         .unwrap();
 
-    let scoped = init_logger(log_file.try_clone().unwrap(), log_file).new(
-        o!("file" => std::env::current_dir().unwrap().into_os_string().into_string().unwrap()),
-    );
+    let scoped =
+        init_logger(log_file.try_clone().unwrap(), log_file).new(o!("file" => "access.log"));
 
     slog_scope::scope(&scoped, || {
         info!("local info");
