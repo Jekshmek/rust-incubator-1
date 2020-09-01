@@ -8,3 +8,5 @@ publish = false
 config = "0.10.1"
 serde = { verison = "1.0.115", features = ["derive"] }
 clap = { version = "2.33.3", features = ["yaml"] }
+humantime = "2.0.1"
+humantime-serde = "1.0.0"
