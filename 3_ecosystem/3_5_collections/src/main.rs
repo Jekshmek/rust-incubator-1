@@ -1,22 +1,20 @@
 use im::OrdMap;
 use std::borrow::Cow;
-use std::process::id;
+use std::collections::hash_map::RandomState;
+use std::collections::{HashMap, HashSet};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct User {
     id: u64,
     nickname: Cow<'static, str>,
 }
 
-trait UserRepository<'a, I>
-where
-    I: IntoIterator<Item = &'a User>,
-{
-    fn get_user(&'a self, id: u64) -> Option<&'a User>;
+trait UserRepository {
+    fn get_user(&self, id: u64) -> Option<User>;
 
-    fn get_users<T: Iterator<Item = u64>>(&'a self, ids: T) -> I;
+    fn get_users(&self, ids: &[u64]) -> HashMap<u64, User>;
 
-    fn get_users_by_nickname<'b>(&'a self, nickname: impl Into<&'b str>) -> I;
+    fn get_users_by_nickname<'b>(&self, nickname: impl Into<&'b str>) -> HashSet<User>;
 }
 
 #[derive(Default, Clone, Debug)]
@@ -29,52 +27,30 @@ impl UserStorage {
         let id = user.id;
         self.users.insert(id, user)
     }
-
-    fn iter<I>(&self, ids: I) -> UserStorageIterIds<I>
-    where
-        I: Iterator<Item = u64>,
-    {
-        UserStorageIterIds { storage: self, ids }
-    }
 }
 
-impl<'storage> UserRepository<'storage, Vec<&'storage User>> for UserStorage {
-    fn get_user(&'storage self, id: u64) -> Option<&'storage User> {
-        self.users.get(&id)
+impl UserRepository for UserStorage {
+    fn get_user(&self, id: u64) -> Option<User> {
+        self.users.get(&id).cloned()
     }
 
-    fn get_users<T: Iterator<Item = u64>>(&'storage self, ids: T) -> Vec<&'storage User> {
-        ids.map(|id| self.users.get(&id))
-            .filter_map(|u| u)
+    fn get_users(&self, ids: &[u64]) -> HashMap<u64, User, RandomState> {
+        ids.iter()
+            .filter_map(|id| self.get_user(*id).map(|u| (u.id, u)))
             .collect()
     }
 
     fn get_users_by_nickname<'b>(
-        &'storage self,
+        &self,
         nickname: impl Into<&'b str>,
-    ) -> Vec<&'storage User> {
+    ) -> HashSet<User, RandomState> {
         let nickname = nickname.into();
 
         self.users
             .values()
             .filter(|u| u.nickname == nickname)
-            .collect::<Vec<_>>()
-    }
-}
-
-struct UserStorageIterIds<'storage, I> {
-    storage: &'storage UserStorage,
-    ids: I,
-}
-
-impl<'storage, I> Iterator for UserStorageIterIds<'storage, I>
-where
-    I: Iterator<Item = u64>,
-{
-    type Item = &'storage User;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.ids.next().and_then(|id| self.storage.users.get(&id))
+            .cloned()
+            .collect()
     }
 }
 
@@ -105,7 +81,7 @@ fn main() {
     }
 
     dbg!(storage.get_user(0));
-    dbg!(storage.get_users(vec![1, 2, 3, 4, 5].into_iter()));
+    dbg!(storage.get_users(&[1, 2, 3, 4, 5]));
     dbg!(storage.get_users_by_nickname("first"));
 }
 
@@ -122,7 +98,7 @@ mod tests {
         };
 
         s.insert(user.clone());
-        assert_eq!(*s.get_user(0).unwrap(), user);
+        assert_eq!(s.get_user(0).unwrap(), user);
     }
 
     #[test]
@@ -134,10 +110,9 @@ mod tests {
             s.insert(user);
         }
 
-        s.get_users(vec![0, 1, 2, 3, 4].into_iter())
+        s.get_users(&[0, 1, 2, 3, 4])
             .into_iter()
-            .zip(users.iter())
-            .for_each(|(u1, u2)| assert_eq!(*u1, *u2));
+            .for_each(|(_, u)| assert!(users.iter().any(|u1| *u1 == u)));
     }
 
     #[test]
@@ -151,8 +126,7 @@ mod tests {
 
         s.get_users_by_nickname("first")
             .into_iter()
-            .zip(users.into_iter().filter(|u| u.nickname == "first"))
-            .for_each(|(u1, u2)| assert_eq!(*u1, u2))
+            .for_each(|u| assert!(users.iter().any(|u1| *u1 == u)));
     }
 
     fn sample_users() -> Vec<User> {
