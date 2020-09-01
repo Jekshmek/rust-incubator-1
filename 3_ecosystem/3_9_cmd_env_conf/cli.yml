@@ -1,0 +1,16 @@
+name: step_3_9
+version: "0.1.0"
+about: Prints its configuration to STDOUT.
+args:
+  - debug:
+      short: d
+      long: debug
+      help: Enables debug mode
+  - config:
+      short: c
+      long: conf
+      value_name: conf
+      env: CONF_FILE
+      default_value: config.toml
+      takes_value: true
+      help: Path to configuration file
