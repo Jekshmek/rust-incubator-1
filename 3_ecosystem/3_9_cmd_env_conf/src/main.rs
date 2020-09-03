@@ -6,15 +6,15 @@ use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-struct Settings<'server, 'db> {
+struct Settings {
     mode: Mode,
-    server: Server<'server>,
-    db: MySQL<'db>,
+    server: Server,
+    db: MySQL,
     log: LogApp,
     background: Background,
 }
 
-impl<'server, 'db> Settings<'server, 'db> {
+impl Settings {
     fn new<'a>(file: impl Into<&'a str>) -> Result<Self, ConfigError> {
         let mut s = Config::new();
         let filename = "3_ecosystem/3_9_cmd_env_conf/".to_string() + file.into();
@@ -47,8 +47,8 @@ impl<'server, 'db> Settings<'server, 'db> {
 }
 
 #[derive(Debug, Deserialize)]
-struct MySQL<'a> {
-    mysql: Database<'a>,
+struct MySQL {
+    mysql: Database,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,8 +67,8 @@ struct Mode {
 }
 
 #[derive(Debug, Deserialize)]
-struct Server<'a> {
-    external_url: Cow<'a, str>,
+struct Server {
+    external_url: Cow<'static, str>,
     http_port: u16,
     grpc_port: u16,
     healthz_port: u16,
@@ -76,12 +76,12 @@ struct Server<'a> {
 }
 
 #[derive(Debug, Deserialize)]
-struct Database<'a> {
-    host: Cow<'a, str>,
+struct Database {
+    host: Cow<'static, str>,
     port: u16,
-    dating: Cow<'a, str>,
-    user: Cow<'a, str>,
-    pass: Cow<'a, str>,
+    dating: Cow<'static, str>,
+    user: Cow<'static, str>,
+    pass: Cow<'static, str>,
     connections: Connections,
 }
 
