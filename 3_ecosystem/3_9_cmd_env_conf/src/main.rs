@@ -171,11 +171,26 @@ impl Log {
 
 #[derive(Debug, Deserialize)]
 struct Watchdog {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "humantime_serde", default = "Watchdog::default_period")]
     period: Duration,
+    #[serde(default = "Watchdog::default_limit")]
     limit: u16,
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "humantime_serde", default = "Watchdog::default_lock_timeout")]
     lock_timeout: Duration,
+}
+
+impl Watchdog {
+    fn default_period() -> Duration {
+        Duration::from_secs(5)
+    }
+
+    fn default_limit() -> u16 {
+        10
+    }
+
+    fn default_lock_timeout() -> Duration {
+        Duration::from_secs(4)
+    }
 }
 
 #[derive(Debug, Deserialize)]
