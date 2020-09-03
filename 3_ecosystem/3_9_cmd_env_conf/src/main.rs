@@ -104,12 +104,39 @@ impl Server {
 
 #[derive(Debug, Deserialize)]
 struct Database {
+    #[serde(default = "Database::default_host")]
     host: Cow<'static, str>,
+    #[serde(default = "Database::default_port")]
     port: u16,
+    #[serde(default = "Database::default_dating")]
     dating: Cow<'static, str>,
+    #[serde(default = "Database::default_user")]
     user: Cow<'static, str>,
+    #[serde(default = "Database::default_pass")]
     pass: Cow<'static, str>,
     connections: Connections,
+}
+
+impl Database {
+    fn default_host() -> Cow<'static, str> {
+        "127.0.0.1".into()
+    }
+
+    fn default_port() -> u16 {
+        3306
+    }
+
+    fn default_dating() -> Cow<'static, str> {
+        "default".into()
+    }
+
+    fn default_user() -> Cow<'static, str> {
+        "root".into()
+    }
+
+    fn default_pass() -> Cow<'static, str> {
+        "".into()
+    }
 }
 
 #[derive(Debug, Deserialize)]
