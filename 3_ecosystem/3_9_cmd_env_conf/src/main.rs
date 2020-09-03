@@ -159,7 +159,14 @@ impl Connections {
 
 #[derive(Debug, Deserialize)]
 struct Log {
+    #[serde(default = "Log::default_level")]
     level: LogLevel,
+}
+
+impl Log {
+    fn default_level() -> LogLevel {
+        LogLevel::Info
+    }
 }
 
 #[derive(Debug, Deserialize)]
