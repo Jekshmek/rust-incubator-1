@@ -19,23 +19,23 @@ impl Settings {
         let mut s = Config::new();
         let filename = "3_ecosystem/3_9_cmd_env_conf/".to_string() + file.into();
 
-        s.set_default("mode.debug", false)?
-            .set_default("server.external_url", "http://127.0.0.1")?
-            .set_default("server.http_port", 8081)?
-            .set_default("server.grpc_port", 8082)?
-            .set_default("server.healthz_port", 10025)?
-            .set_default("server.metrics_port", 9199)?
-            .set_default("db.mysql.host", "127.0.0.1")?
-            .set_default("db.mysql.port", 3306)?
-            .set_default("db.mysql.dating", "default")?
-            .set_default("db.mysql.user", "root")?
-            .set_default("db.mysql.pass", "")?
-            .set_default("db.mysql.connections.max_idle", 30)?
-            .set_default("db.mysql.connections.max_open", 30)?
-            .set_default("log.app.level", "info")?
-            .set_default("background.watchdog.period", "5s")?
-            .set_default("background.watchdog.limit", 10)?
-            .set_default("background.watchdog.lock_timeout", "4s")?;
+        // s.set_default("mode.debug", false)?
+        //     .set_default("server.external_url", "http://127.0.0.1")?
+        //     .set_default("server.http_port", 8081)?
+        //     .set_default("server.grpc_port", 8082)?
+        //     .set_default("server.healthz_port", 10025)?
+        //     .set_default("server.metrics_port", 9199)?
+        //     .set_default("db.mysql.host", "127.0.0.1")?
+        //     .set_default("db.mysql.port", 3306)?
+        //     .set_default("db.mysql.dating", "default")?
+        //     .set_default("db.mysql.user", "root")?
+        //     .set_default("db.mysql.pass", "")?
+        //     .set_default("db.mysql.connections.max_idle", 30)?
+        //     .set_default("db.mysql.connections.max_open", 30)?
+        //     .set_default("log.app.level", "info")?
+        //     .set_default("background.watchdog.period", "5s")?
+        //     .set_default("background.watchdog.limit", 10)?
+        //     .set_default("background.watchdog.lock_timeout", "4s")?;
 
         s.set("mode.debug", true)?;
 
@@ -68,11 +68,38 @@ struct Mode {
 
 #[derive(Debug, Deserialize)]
 struct Server {
+    #[serde(default = "Server::default_external_url")]
     external_url: Cow<'static, str>,
+    #[serde(default = "Server::default_http_port")]
     http_port: u16,
+    #[serde(default = "Server::default_grpc_port")]
     grpc_port: u16,
+    #[serde(default = "Server::default_healthz_port")]
     healthz_port: u16,
+    #[serde(default = "Server::default_metrics_port")]
     metrics_port: u16,
+}
+
+impl Server {
+    fn default_external_url() -> Cow<'static, str> {
+        "http://127.0.0.1".into()
+    }
+
+    fn default_http_port() -> u16 {
+        8081
+    }
+
+    fn default_grpc_port() -> u16 {
+        8082
+    }
+
+    fn default_healthz_port() -> u16 {
+        10025
+    }
+
+    fn default_metrics_port() -> u16 {
+        9199
+    }
 }
 
 #[derive(Debug, Deserialize)]
