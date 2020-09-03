@@ -141,8 +141,20 @@ impl Database {
 
 #[derive(Debug, Deserialize)]
 struct Connections {
+    #[serde(default = "Connections::default_max_idle")]
     max_idle: u16,
+    #[serde(default = "Connections::default_max_open")]
     max_open: u16,
+}
+
+impl Connections {
+    fn default_max_idle() -> u16 {
+        30
+    }
+
+    fn default_max_open() -> u16 {
+        30
+    }
 }
 
 #[derive(Debug, Deserialize)]
