@@ -25,6 +25,18 @@ pub fn get_all_articles(conn: &SqliteConnection) -> Vec<Article> {
     articles::table.load(conn).unwrap()
 }
 
+pub fn get_article(id: i32, conn: &SqliteConnection) -> Option<Article> {
+    articles::table.find(id).first(conn).ok()
+}
+
+pub fn delete_article(id: i32, conn: &SqliteConnection) -> bool {
+    let rows_changed = diesel::delete(articles::table.find(id))
+        .execute(conn)
+        .unwrap();
+    
+    rows_changed == 1
+}
+
 pub fn get_labels_for_article(article: &Article, conn: &SqliteConnection) -> Vec<Label> {
     let article_labels_ids: Vec<i32> = ArticleLabel::belonging_to(article)
         .select(articles_labels::columns::label_id)

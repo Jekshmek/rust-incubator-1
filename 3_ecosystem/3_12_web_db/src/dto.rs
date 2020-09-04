@@ -5,6 +5,7 @@ use step_3_12::{get_labels, get_labels_for_article, models, schema};
 
 #[derive(Serialize, Deserialize)]
 pub struct Article {
+    #[serde(skip_deserializing)]
     id: i32,
     title: String,
     body: String,
