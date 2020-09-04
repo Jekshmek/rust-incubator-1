@@ -8,14 +8,14 @@ table! {
 
 table! {
     articles_labels (article_id, label_id) {
-        article_id -> Nullable<Integer>,
-        label_id -> Nullable<Integer>,
+        article_id -> Integer,
+        label_id -> Integer,
     }
 }
 
 table! {
     labels (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         name -> Text,
     }
 }
