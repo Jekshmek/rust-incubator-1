@@ -5,6 +5,7 @@ use step_3_12::{get_labels, get_labels_for_article, models, schema};
 
 #[derive(Serialize, Deserialize)]
 pub struct Article {
+    id: i32,
     title: String,
     body: String,
     labels: Vec<String>,
@@ -18,6 +19,7 @@ impl Article {
             .collect::<Vec<_>>();
 
         Article {
+            id: article.id,
             title: article.title,
             body: article.body,
             labels,
@@ -68,8 +70,4 @@ impl Article {
         })
         .expect("Transaction failed");
     }
-}
-
-pub struct Label {
-    name: String,
 }
