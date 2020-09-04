@@ -1,6 +1,6 @@
 CREATE TABLE labels (
     id INTEGER PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL UNIQUE
 );
 
 

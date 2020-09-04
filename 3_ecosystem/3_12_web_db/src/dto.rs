@@ -1,5 +1,6 @@
 use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SqliteConnection};
 use serde::{Deserialize, Serialize};
+use step_3_12::models::NewLabel;
 use step_3_12::{get_labels, get_labels_for_article, models, schema};
 
 #[derive(Serialize, Deserialize)]
@@ -24,25 +25,34 @@ impl Article {
     }
 
     pub fn store(&self, conn: &SqliteConnection) {
-        let labels = get_labels(self.labels.as_slice(), conn);
-        let new_article = models::NewArticle {
-            title: self.title.as_str(),
-            body: self.body.as_str(),
-        };
+        let new_labels = self
+            .labels
+            .iter()
+            .map(|l| NewLabel { name: l.as_str() })
+            .collect::<Vec<_>>();
 
         conn.transaction::<_, diesel::result::Error, _>(|| {
+            diesel::insert_or_ignore_into(schema::labels::table)
+                .values(new_labels)
+                .execute(conn)
+                .unwrap();
+
+            let labels = get_labels(self.labels.as_slice(), conn);
+            let new_article = models::NewArticle {
+                title: self.title.as_str(),
+                body: self.body.as_str(),
+            };
+
             diesel::insert_into(schema::articles::table)
                 .values(&new_article)
-                .execute(conn)
-                .expect("Error saving new post");
+                .execute(conn)?;
 
             let article_id = schema::articles::table
                 .order(schema::articles::columns::id.desc())
                 .select(schema::articles::columns::id)
-                .first(conn)
-                .unwrap();
+                .first(conn)?;
 
-            let new_labels = labels
+            let new_article_labels = labels
                 .into_iter()
                 .map(|label| models::NewArticleLabel {
                     article_id,
@@ -50,10 +60,9 @@ impl Article {
                 })
                 .collect::<Vec<_>>();
 
-            let x = diesel::insert_into(schema::articles_labels::table)
-                .values(new_labels)
-                .execute(conn)
-                .expect("Error saving article labels");
+            diesel::insert_into(schema::articles_labels::table)
+                .values(new_article_labels)
+                .execute(conn)?;
 
             Ok(())
         })
