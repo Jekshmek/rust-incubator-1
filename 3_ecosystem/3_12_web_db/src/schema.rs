@@ -1,6 +1,6 @@
 table! {
     articles (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         title -> Text,
         body -> Text,
     }

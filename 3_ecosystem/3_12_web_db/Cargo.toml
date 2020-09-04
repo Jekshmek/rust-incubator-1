@@ -7,3 +7,6 @@ publish = false
 [dependencies]
 diesel = { version = "1.4.5", features = ["sqlite"] }
 dotenv = "0.15.0"
+actix-web = "2.0.0"
+actix-rt = "1.1.1"
+serde = "1.0.115"

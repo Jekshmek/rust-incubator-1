@@ -21,6 +21,10 @@ pub fn establish_connection() -> SqliteConnection {
     SqliteConnection::establish(&db_url).unwrap_or_else(|_| panic!("Can`t connect to {}", &db_url))
 }
 
+pub fn get_all_articles(conn: &SqliteConnection) -> Vec<Article> {
+    articles::table.load(conn).unwrap()
+}
+
 pub fn get_labels_for_article(article: &Article, conn: &SqliteConnection) -> Vec<Label> {
     let article_labels_ids: Vec<i32> = ArticleLabel::belonging_to(article)
         .select(articles_labels::columns::label_id)
