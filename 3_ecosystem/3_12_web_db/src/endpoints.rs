@@ -16,3 +16,15 @@ pub async fn get_articles() -> Result<HttpResponse> {
 
     Ok(HttpResponse::Ok().json(articles))
 }
+
+pub async fn add_article(article: web::Json<dto::Article>) -> Result<HttpResponse> {
+    let connection = establish_connection();
+
+    web::block(move || -> Result<(), ()> {
+        article.store(&connection);
+        Ok(())
+    })
+    .await?;
+
+    Ok(HttpResponse::Ok().finish())
+}

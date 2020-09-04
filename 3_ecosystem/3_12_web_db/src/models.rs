@@ -35,3 +35,10 @@ pub struct ArticleLabel {
     pub article_id: i32,
     pub label_id: i32,
 }
+
+#[derive(Insertable)]
+#[table_name = "articles_labels"]
+pub struct NewArticleLabel {
+    pub article_id: i32,
+    pub label_id: i32,
+}

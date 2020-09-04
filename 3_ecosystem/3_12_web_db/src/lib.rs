@@ -36,3 +36,10 @@ pub fn get_labels_for_article(article: &Article, conn: &SqliteConnection) -> Vec
         .load::<Label>(conn)
         .unwrap()
 }
+
+pub fn get_labels(labels: &[String], conn: &SqliteConnection) -> Vec<Label> {
+    labels::table
+        .filter(labels::columns::name.eq_any(labels))
+        .load::<Label>(conn)
+        .unwrap()
+}

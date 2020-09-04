@@ -1,6 +1,6 @@
-use diesel::SqliteConnection;
+use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SqliteConnection};
 use serde::{Deserialize, Serialize};
-use step_3_12::{get_labels_for_article, models};
+use step_3_12::{get_labels, get_labels_for_article, models, schema};
 
 #[derive(Serialize, Deserialize)]
 pub struct Article {
@@ -21,6 +21,43 @@ impl Article {
             body: article.body,
             labels,
         }
+    }
+
+    pub fn store(&self, conn: &SqliteConnection) {
+        let labels = get_labels(self.labels.as_slice(), conn);
+        let new_article = models::NewArticle {
+            title: self.title.as_str(),
+            body: self.body.as_str(),
+        };
+
+        conn.transaction::<_, diesel::result::Error, _>(|| {
+            diesel::insert_into(schema::articles::table)
+                .values(&new_article)
+                .execute(conn)
+                .expect("Error saving new post");
+
+            let article_id = schema::articles::table
+                .order(schema::articles::columns::id.desc())
+                .select(schema::articles::columns::id)
+                .first(conn)
+                .unwrap();
+
+            let new_labels = labels
+                .into_iter()
+                .map(|label| models::NewArticleLabel {
+                    article_id,
+                    label_id: label.id,
+                })
+                .collect::<Vec<_>>();
+
+            let x = diesel::insert_into(schema::articles_labels::table)
+                .values(new_labels)
+                .execute(conn)
+                .expect("Error saving article labels");
+
+            Ok(())
+        })
+        .expect("Transaction failed");
     }
 }
 
