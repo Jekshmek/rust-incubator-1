@@ -1,12 +1,9 @@
-use std::error::Error;
-
 use futures::{future, StreamExt};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::Response;
 use structopt::StructOpt;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
+use tokio::{fs, io::AsyncWriteExt, runtime};
 
 #[derive(Debug, StructOpt)]
 struct Options {
@@ -30,43 +27,52 @@ impl Options {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let options = Options::init();
 
-    let urls = fs::read_to_string(options.file.as_str()).await?;
-    let urls: Vec<&str> = urls.split('\n').collect();
+    let mut rt = runtime::Builder::new()
+        .core_threads(options.max_threads.unwrap())
+        .threaded_scheduler()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    let requests = urls.into_iter().map(reqwest::get).collect::<Vec<_>>();
+    rt.block_on(async {
+        let urls = fs::read_to_string(options.file.as_str())
+            .await
+            .expect("No urls file found");
+        let urls: Vec<&str> = urls.split('\n').collect();
 
-    let responses = future::join_all(requests)
-        .await
-        .into_iter()
-        .map(std::result::Result::unwrap)
-        .collect::<Vec<Response>>();
+        let requests = urls.into_iter().map(reqwest::get).collect::<Vec<_>>();
 
-    let streams = responses
-        .into_iter()
-        .map(|resp| async move {
-            static RE: Lazy<Regex> = Lazy::new(|| {
-                Regex::new(r"((https://)|(http://))?(www\.)?(?P<name>[^.]+)").unwrap()
-            });
+        let responses = future::join_all(requests)
+            .await
+            .into_iter()
+            .map(std::result::Result::unwrap)
+            .collect::<Vec<Response>>();
 
-            let captures = RE.captures(resp.url().as_ref()).unwrap();
-            let filename = captures.name("name").unwrap().as_str();
+        let streams = responses
+            .into_iter()
+            .map(|resp| async move {
+                static RE: Lazy<Regex> = Lazy::new(|| {
+                    Regex::new(r"((https://)|(http://))?(www\.)?(?P<name>[^.]+)").unwrap()
+                });
 
-            let mut file = fs::File::create(format!("3_ecosystem/3_11_async/{}.html", filename))
-                .await
-                .unwrap();
+                let captures = RE.captures(resp.url().as_ref()).unwrap();
+                let filename = captures.name("name").unwrap().as_str();
 
-            let mut stream = resp.bytes_stream();
-            while let Some(chunk) = stream.next().await {
-                file.write_all(&chunk.unwrap()).await.unwrap();
-            }
-        })
-        .collect::<Vec<_>>();
+                let mut file =
+                    fs::File::create(format!("3_ecosystem/3_11_async/{}.html", filename))
+                        .await
+                        .unwrap();
 
-    future::join_all(streams).await;
+                let mut stream = resp.bytes_stream();
+                while let Some(chunk) = stream.next().await {
+                    file.write_all(&chunk.unwrap()).await.unwrap();
+                }
+            })
+            .collect::<Vec<_>>();
 
-    Ok(())
+        future::join_all(streams).await;
+    });
 }
