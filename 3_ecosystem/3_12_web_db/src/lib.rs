@@ -7,18 +7,40 @@ pub mod schema;
 
 use std::env;
 
-use diesel::prelude::*;
+use diesel::{
+    prelude::*,
+    r2d2::{ConnectionManager, Pool, PooledConnection},
+};
 use dotenv::dotenv;
+use once_cell::sync::Lazy;
 
 use crate::models::{Article, ArticleLabel, Label};
 use crate::schema::{articles, articles_labels, labels};
 
-#[must_use]
-pub fn establish_connection() -> SqliteConnection {
-    dotenv().ok();
+pub type SqlitePooledConnection = PooledConnection<ConnectionManager<SqliteConnection>>;
 
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL env var not found");
-    SqliteConnection::establish(&db_url).unwrap_or_else(|_| panic!("Can`t connect to {}", &db_url))
+#[must_use]
+pub fn get_connection() -> SqlitePooledConnection {
+    static CONNECTION_POOL: Lazy<Pool<ConnectionManager<SqliteConnection>>> = Lazy::new(|| {
+        dotenv().ok();
+
+        let db_url = env::var("DATABASE_URL").expect("DATABASE_URL env var not found");
+
+        let manager = diesel::r2d2::ConnectionManager::<SqliteConnection>::new(&db_url);
+        let pool = diesel::r2d2::Pool::builder()
+            .max_size(15)
+            .build(manager)
+            .unwrap();
+
+        pool.get()
+            .unwrap()
+            .execute("PRAGMA foreign_keys = ON")
+            .unwrap();
+
+        pool
+    });
+
+    CONNECTION_POOL.get().unwrap()
 }
 
 pub fn get_all_articles(conn: &SqliteConnection) -> Vec<Article> {
@@ -33,7 +55,7 @@ pub fn delete_article(id: i32, conn: &SqliteConnection) -> bool {
     let rows_changed = diesel::delete(articles::table.find(id))
         .execute(conn)
         .unwrap();
-    
+
     rows_changed == 1
 }
 
