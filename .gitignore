@@ -5,3 +5,4 @@
 
 /target/
 /access.log
+/3_ecosystem/.env
