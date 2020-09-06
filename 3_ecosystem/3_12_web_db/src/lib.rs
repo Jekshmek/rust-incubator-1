@@ -5,13 +5,12 @@ extern crate dotenv;
 pub mod models;
 pub mod schema;
 
-use std::env;
+use std::{env, fs};
 
 use diesel::{
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
 };
-use dotenv::dotenv;
 use once_cell::sync::Lazy;
 
 use crate::models::{Article, ArticleLabel, Label};
@@ -22,7 +21,11 @@ pub type SqlitePooledConnection = PooledConnection<ConnectionManager<SqliteConne
 #[must_use]
 pub fn get_connection() -> SqlitePooledConnection {
     static CONNECTION_POOL: Lazy<Pool<ConnectionManager<SqliteConnection>>> = Lazy::new(|| {
-        dotenv().ok();
+        let mut env_path = fs::canonicalize("./").unwrap();
+        env_path.push("3_ecosystem");
+        env_path.push("3_12_web_db");
+        env_path.push(".env");
+        dotenv::from_path(env_path.as_path()).ok();
 
         let db_url = env::var("DATABASE_URL").expect("DATABASE_URL env var not found");
 

@@ -6,3 +6,4 @@
 /target/
 /access.log
 /.env
+/3_ecosystem/3_12_web_db/.env
