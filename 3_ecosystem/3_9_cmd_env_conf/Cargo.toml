@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 config = "0.10.1"
-serde = { verison = "1.0.115", features = ["derive"] }
+serde = { version = "1.0.115", features = ["derive"] }
 humantime = "2.0.1"
 humantime-serde = "1.0.0"
 structopt = "0.3.17"
