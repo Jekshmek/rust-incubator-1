@@ -1,13 +1,13 @@
 use uuid::Uuid;
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Debug)]
 pub struct User {
     pub id: Uuid,
     pub name: String,
     pub password: String,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Debug)]
 pub struct UserToUser {
     pub user_1: Uuid,
     pub user_2: Uuid,
