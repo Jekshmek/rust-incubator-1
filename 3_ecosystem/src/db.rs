@@ -92,13 +92,19 @@ pub enum UserRepoError {
     ConnectionFailed,
 }
 
-impl ToString for UserRepoError {
-    fn to_string(&self) -> String {
-        match self {
-            UserRepoError::UserNotFound => "User not found".to_string(),
-            UserRepoError::UserAlreadyExists => "User already exists".to_string(),
-            UserRepoError::AlreadyFriends => "Users are already friends".to_string(),
-            UserRepoError::ConnectionFailed => "Failed to establish connection".to_string(),
+impl From<&UserRepoError> for &'static str {
+    fn from(repo: &UserRepoError) -> Self {
+        match repo {
+            UserRepoError::UserNotFound => "User not found",
+            UserRepoError::UserAlreadyExists => "User already exists",
+            UserRepoError::AlreadyFriends => "Users are already friends",
+            UserRepoError::ConnectionFailed => "Failed to establish connection",
         }
+    }
+}
+
+impl UserRepoError {
+    pub fn msg(self) -> &'static str {
+        (&self).into()
     }
 }

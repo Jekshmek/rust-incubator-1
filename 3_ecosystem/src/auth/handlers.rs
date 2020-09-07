@@ -44,7 +44,7 @@ pub async fn register_user(
     user_repo
         .add_user(user_data.name.as_str(), hash.as_str())
         .await
-        .map_err(|e| error::ErrorBadRequest(e.to_string()))?;
+        .map_err(|e| error::ErrorBadRequest(e.msg()))?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -57,7 +57,7 @@ pub async fn login_user(
     let user = user_repo
         .get_user_by_name(auth_data.name.as_str())
         .await
-        .map_err(|e| error::ErrorBadRequest(e.to_string()))?;
+        .map_err(|e| error::ErrorBadRequest(e.msg()))?;
 
     let (is_correct, auth_data) = web::block(move || {
         verify_password(user.password.as_str(), auth_data.password.as_str())

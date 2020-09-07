@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use juniper::{EmptySubscription, FieldError, FieldResult, RootNode, Value};
 use uuid::Uuid;
 
@@ -7,15 +9,20 @@ use crate::db::UserRepo;
 pub struct GraphQLContext {
     pub user_repo: UserRepo,
     pub login_data: Option<UserLoginData>,
+    pub query_depth: AtomicU32,
+}
+
+impl GraphQLContext {
+    pub fn new(user_repo: UserRepo, login_data: Option<UserLoginData>) -> Self {
+        GraphQLContext {
+            user_repo,
+            login_data,
+            query_depth: AtomicU32::new(0),
+        }
+    }
 }
 
 impl juniper::Context for GraphQLContext {}
-
-#[derive(juniper::GraphQLObject)]
-struct Friend {
-    id: Uuid,
-    name: String,
-}
 
 struct User {
     id: Uuid,
@@ -32,16 +39,25 @@ impl User {
         self.name.as_str()
     }
 
-    async fn friends(&self, context: &GraphQLContext) -> FieldResult<Vec<Friend>> {
+    async fn friends(&self, context: &GraphQLContext) -> FieldResult<Vec<User>> {
+        if context.query_depth.load(Ordering::Relaxed) > 0 {
+            return Err(FieldError::new(
+                "Friends depth can not be more than 1",
+                Value::null(),
+            ));
+        }
+
+        context.query_depth.fetch_add(1, Ordering::Relaxed);
+
         let friends = context
             .user_repo
             .get_friends_by_id(&self.id)
             .await
-            .map_err(|e| FieldError::new(e.to_string(), Value::null()))?;
+            .map_err(|e| FieldError::new(e.msg(), Value::null()))?;
 
         Ok(friends
             .into_iter()
-            .map(|friend| Friend {
+            .map(|friend| User {
                 id: friend.id,
                 name: friend.name,
             })
@@ -69,7 +85,7 @@ impl Query {
                 id: user.id,
                 name: user.name,
             })
-            .map_err(|e| FieldError::new(e.to_string(), Value::null()))
+            .map_err(|e| FieldError::new(e.msg(), Value::null()))
     }
 }
 
@@ -86,7 +102,7 @@ impl Mutations {
             )
             .await
             .map(|_| true)
-            .map_err(|e| FieldError::new(e.to_string(), Value::null()))
+            .map_err(|e| FieldError::new(e.msg(), Value::null()))
     }
 }
 

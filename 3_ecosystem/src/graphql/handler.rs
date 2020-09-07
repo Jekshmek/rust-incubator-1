@@ -12,10 +12,7 @@ pub async fn graphql(
     user_repo: web::Data<UserRepo>,
     login_data: UserLoginData,
 ) -> Result<HttpResponse, Error> {
-    let context = GraphQLContext {
-        user_repo: user_repo.get_ref().clone(),
-        login_data: Some(login_data),
-    };
+    let context = GraphQLContext::new(user_repo.get_ref().clone(), Some(login_data));
 
     graphql_handler(&schema, &context, req, payload).await
 }
