@@ -19,5 +19,5 @@ actix-identity = "0.2.1"
 once_cell = "1.4.1"
 argonautica = "0.2.0"
 futures = "0.3.5"
-juniper = { git = "https://github.com/graphql-rust/juniper", path = "juniper"}
-juniper_actix = { git = "https://github.com/graphql-rust/juniper", path = "juniper_actix" }
+juniper = { git = "https://github.com/graphql-rust/juniper" }
+juniper_actix = { git = "https://github.com/graphql-rust/juniper" }

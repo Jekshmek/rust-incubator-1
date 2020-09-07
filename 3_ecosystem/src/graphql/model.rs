@@ -1,9 +1,15 @@
 use juniper::{EmptySubscription, FieldError, FieldResult, RootNode, Value};
 use uuid::Uuid;
 
+use crate::auth::handlers::UserData as UserLoginData;
 use crate::db::UserRepo;
 
-impl juniper::Context for UserRepo {}
+pub struct GraphQLContext {
+    pub user_repo: UserRepo,
+    pub login_data: Option<UserLoginData>,
+}
+
+impl juniper::Context for GraphQLContext {}
 
 #[derive(juniper::GraphQLObject)]
 struct Friend {
@@ -16,7 +22,7 @@ struct User {
     name: String,
 }
 
-#[juniper::graphql_object(Context = UserRepo)]
+#[juniper::graphql_object(Context = GraphQLContext)]
 impl User {
     fn id(&self) -> &Uuid {
         &self.id
@@ -26,55 +32,65 @@ impl User {
         self.name.as_str()
     }
 
-    async fn friends(&self, context: &UserRepo) -> Vec<Friend> {
+    async fn friends(&self, context: &GraphQLContext) -> FieldResult<Vec<Friend>> {
         let friends = context
+            .user_repo
             .get_friends_by_id(&self.id)
             .await
-            .expect("Could not get friends");
+            .map_err(|e| FieldError::new(e.to_string(), Value::null()))?;
 
-        friends
+        Ok(friends
             .into_iter()
             .map(|friend| Friend {
                 id: friend.id,
                 name: friend.name,
             })
-            .collect()
+            .collect())
     }
 }
 
 pub struct Query;
 
-#[juniper::graphql_object(Context = UserRepo)]
+#[juniper::graphql_object(Context = GraphQLContext)]
 impl Query {
-    async fn user(name: String, context: &UserRepo) -> FieldResult<User> {
+    #[graphql(arguments(name(default = "".to_owned(),)))]
+    async fn user(name: String, context: &GraphQLContext) -> FieldResult<User> {
+        let name_ref = if name.is_empty() {
+            context.login_data.as_ref().unwrap().name.as_str()
+        } else {
+            name.as_str()
+        };
+
         context
-            .get_user_by_name(name.as_str())
+            .user_repo
+            .get_user_by_name(name_ref)
             .await
             .map(|user| User {
                 id: user.id,
                 name: user.name,
             })
-            .map_err(|_| FieldError::new("User not found", Value::null()))
+            .map_err(|e| FieldError::new(e.to_string(), Value::null()))
     }
 }
 
 pub struct Mutations;
 
-#[juniper::graphql_object(Context = UserRepo)]
+#[juniper::graphql_object(Context = GraphQLContext)]
 impl Mutations {
-    // async fn add_friend(name: String) -> FieldResult<bool> {
-    //     context
-    //         .add_friends(user1.as_str(), user2.as_str())
-    //         .await
-    //         .map(|_| true)
-    //         .map_err(|e| {
-    //             dbg!(e);
-    //             FieldError::new("Error", Value::null())
-    //         })
-    // }
+    async fn add_friend(name: String, context: &GraphQLContext) -> FieldResult<bool> {
+        context
+            .user_repo
+            .add_friends(
+                context.login_data.as_ref().unwrap().name.as_str(),
+                name.as_str(),
+            )
+            .await
+            .map(|_| true)
+            .map_err(|e| FieldError::new(e.to_string(), Value::null()))
+    }
 }
 
-pub type Schema = RootNode<'static, Query, Mutations, EmptySubscription<UserRepo>>;
+pub type Schema = RootNode<'static, Query, Mutations, EmptySubscription<GraphQLContext>>;
 
 pub fn schema() -> Schema {
     Schema::new(Query, Mutations, EmptySubscription::new())

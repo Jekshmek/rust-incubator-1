@@ -1,7 +1,7 @@
+mod auth;
 mod config;
 mod db;
 mod graphql;
-mod handlers;
 mod model;
 
 use std::io;
@@ -11,9 +11,9 @@ use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::{web, App, HttpServer, Result};
 use sqlx::PgPool;
 
+use crate::auth::handlers::{get_logged_user, login_user, register_user};
 use crate::config::CONFIG;
 use crate::db::UserRepo;
-use crate::handlers::auth;
 use graphql::model::schema;
 
 async fn index() -> Result<NamedFile> {
@@ -30,8 +30,6 @@ async fn main() -> io::Result<()> {
 
     let repo = UserRepo::new(pool);
 
-    dbg!(schema().as_schema_language());
-
     HttpServer::new(move || {
         App::new()
             .data(repo.clone())
@@ -44,9 +42,9 @@ async fn main() -> io::Result<()> {
                     .secure(false),
             ))
             .route("/", web::get().to(index))
-            .route("/info", web::get().to(auth::get_logged_user))
-            .route("/register", web::post().to(auth::register_user))
-            .route("/login", web::post().to(auth::login_user))
+            .route("/info", web::get().to(get_logged_user))
+            .route("/register", web::post().to(register_user))
+            .route("/login", web::post().to(login_user))
             .route("/graphiql", web::get().to(graphql::handler::graphiql))
             .service(
                 web::resource("/api")

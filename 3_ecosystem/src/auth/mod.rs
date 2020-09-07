@@ -1,2 +1,2 @@
-pub mod auth;
+pub mod handlers;
 mod password_utils;

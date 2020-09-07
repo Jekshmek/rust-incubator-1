@@ -6,8 +6,8 @@ use actix_web::{
 use futures::future::{err, ok, Ready};
 use serde::{Deserialize, Serialize};
 
+use crate::auth::password_utils::{hash_password, verify_password};
 use crate::db::UserRepo;
-use crate::handlers::password_utils::{hash_password, verify_password};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserData {
@@ -44,7 +44,7 @@ pub async fn register_user(
     user_repo
         .add_user(user_data.name.as_str(), hash.as_str())
         .await
-        .map_err(|_| error::ErrorBadRequest("User with that name already exists"))?;
+        .map_err(|e| error::ErrorBadRequest(e.to_string()))?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -57,14 +57,14 @@ pub async fn login_user(
     let user = user_repo
         .get_user_by_name(auth_data.name.as_str())
         .await
-        .map_err(|_| error::ErrorBadRequest("Invalid username"))?;
+        .map_err(|e| error::ErrorBadRequest(e.to_string()))?;
 
     let (is_correct, auth_data) = web::block(move || {
         verify_password(user.password.as_str(), auth_data.password.as_str())
             .map(|res| (res, auth_data))
     })
     .await
-    .map_err(|_| error::ErrorInternalServerError(""))?;
+    .map_err(|_| error::ErrorInternalServerError("Try again later"))?;
 
     if !is_correct {
         return Err(error::ErrorBadRequest("Wrong password"));

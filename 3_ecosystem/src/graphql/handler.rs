@@ -1,20 +1,25 @@
 use actix_web::{web, Error, HttpRequest, HttpResponse};
-use juniper_actix::{graphiql_handler as gqli_handler, graphql_handler};
+use juniper_actix::{graphiql_handler, graphql_handler};
 
+use crate::auth::handlers::UserData as UserLoginData;
 use crate::db::UserRepo;
-use crate::graphql::model::Schema;
-use crate::handlers::auth::UserData as UserLoginData;
+use crate::graphql::model::{GraphQLContext, Schema};
 
 pub async fn graphql(
     req: HttpRequest,
     payload: web::Payload,
     schema: web::Data<Schema>,
     user_repo: web::Data<UserRepo>,
-    _login_data: UserLoginData,
+    login_data: UserLoginData,
 ) -> Result<HttpResponse, Error> {
-    graphql_handler(&schema, user_repo.get_ref(), req, payload).await
+    let context = GraphQLContext {
+        user_repo: user_repo.get_ref().clone(),
+        login_data: Some(login_data),
+    };
+
+    graphql_handler(&schema, &context, req, payload).await
 }
 
 pub async fn graphiql() -> Result<HttpResponse, Error> {
-    gqli_handler("/api", None).await
+    graphiql_handler("/api", None).await
 }
