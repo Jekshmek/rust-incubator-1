@@ -1,15 +1,19 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc, Mutex,
+};
 
 use actix_web::web;
 use juniper::{EmptySubscription, FieldError, FieldResult, RootNode, Value};
 use uuid::Uuid;
 
+use crate::auth::password_utils::verify_password;
 use crate::auth::{handlers::UserLoginData, password_utils::hash_password};
 use crate::db::UserRepo;
 
 pub struct GraphQLContext {
     pub user_repo: UserRepo,
-    pub login_data: Option<UserLoginData>,
+    pub login_data: Arc<Mutex<Option<UserLoginData>>>,
     pub query_depth: AtomicU32,
 }
 
@@ -17,7 +21,7 @@ impl GraphQLContext {
     pub fn new(user_repo: UserRepo, login_data: Option<UserLoginData>) -> Self {
         GraphQLContext {
             user_repo,
-            login_data,
+            login_data: Arc::new(Mutex::new(login_data)),
             query_depth: AtomicU32::new(0),
         }
     }
@@ -72,9 +76,7 @@ pub struct Query;
 impl Query {
     #[graphql(arguments(name(default = "".to_owned(),)))]
     async fn user(name: String, context: &GraphQLContext) -> FieldResult<User> {
-        let login_data = context
-            .login_data
-            .as_ref()
+        let login_data = Option::clone(&context.login_data.lock().unwrap())
             .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
 
         let name_ref = if name.is_empty() {
@@ -93,6 +95,29 @@ impl Query {
             })
             .map_err(|e| FieldError::new(e.msg(), Value::null()))
     }
+
+    async fn login(name: String, password: String, context: &GraphQLContext) -> FieldResult<bool> {
+        let user = context
+            .user_repo
+            .get_user_by_name(name.as_str())
+            .await
+            .map_err(|e| FieldError::new(e.msg(), Value::null()))?;
+
+        let (correct, password) = web::block(move || {
+            verify_password(user.password.as_str(), password.as_str()).map(|b| (b, password))
+        })
+        .await
+        .map_err(|_| FieldError::new("Password error", Value::null()))?;
+
+        if !correct {
+            return Err(FieldError::new("Wrong password", Value::null()));
+        }
+
+        let mut guard = context.login_data.lock().unwrap();
+        guard.replace(UserLoginData { name, password });
+
+        Ok(true)
+    }
 }
 
 pub struct Mutations;
@@ -100,9 +125,7 @@ pub struct Mutations;
 #[juniper::graphql_object(Context = GraphQLContext)]
 impl Mutations {
     async fn add_friend(name: String, context: &GraphQLContext) -> FieldResult<bool> {
-        let login_data = context
-            .login_data
-            .as_ref()
+        let login_data = Option::clone(&context.login_data.lock().unwrap())
             .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
 
         context

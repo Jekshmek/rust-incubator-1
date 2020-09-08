@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::auth::password_utils::{hash_password, verify_password};
 use crate::db::UserRepo;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UserLoginData {
     pub name: String,
     pub password: String,
