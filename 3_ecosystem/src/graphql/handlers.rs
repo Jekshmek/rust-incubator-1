@@ -1,6 +1,6 @@
 use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
-use juniper_actix::{graphiql_handler, graphql_handler};
+use juniper_actix::{graphiql_handler, graphql_handler, playground_handler};
 
 use crate::auth::model::UserLoginData;
 use crate::db::UserRepo;
@@ -42,4 +42,8 @@ pub async fn graphql(
 
 pub async fn graphiql() -> Result<HttpResponse, Error> {
     graphiql_handler("/api", None).await
+}
+
+pub async fn playground() -> Result<HttpResponse, Error> {
+    playground_handler("/api", None).await
 }

@@ -36,6 +36,7 @@ async fn main() -> io::Result<()> {
                     .secure(false),
             ))
             .route("/graphiql", web::get().to(graphql::handlers::graphiql))
+            .route("/playground", web::get().to(graphql::handlers::playground))
             .service(
                 web::resource("/api")
                     .route(web::post().to(graphql::handlers::graphql))
