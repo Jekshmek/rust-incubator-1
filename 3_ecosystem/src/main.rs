@@ -4,10 +4,10 @@ mod db;
 mod graphql;
 mod model;
 
-use std::io;
+use std::{env, io};
 
 use actix_identity::{CookieIdentityPolicy, IdentityService};
-use actix_web::{web, App, HttpServer};
+use actix_web::{middleware, web, App, HttpServer};
 use sqlx::PgPool;
 
 use crate::config::CONFIG;
@@ -24,10 +24,14 @@ async fn main() -> io::Result<()> {
 
     let repo = UserRepo::new(pool);
 
+    env::set_var("RUST_LOG", "info");
+    env_logger::init();
+
     HttpServer::new(move || {
         App::new()
             .data(repo.clone())
             .data(schema())
+            .wrap(middleware::Logger::default())
             .wrap(IdentityService::new(
                 CookieIdentityPolicy::new(CONFIG.server.secret_key.as_bytes())
                     .name("auth")
