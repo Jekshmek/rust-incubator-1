@@ -1,2 +1,2 @@
-pub mod handlers;
+pub mod model;
 pub(crate) mod password_utils;

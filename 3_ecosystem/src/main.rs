@@ -6,19 +6,13 @@ mod model;
 
 use std::io;
 
-use actix_files::NamedFile;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
-use actix_web::{web, App, HttpServer, Result};
+use actix_web::{web, App, HttpServer};
 use sqlx::PgPool;
 
-use crate::auth::handlers::{get_logged_user, login_user, register_user};
 use crate::config::CONFIG;
 use crate::db::UserRepo;
-use graphql::model::schema;
-
-async fn index() -> Result<NamedFile> {
-    Ok(NamedFile::open("3_ecosystem/static/index.html")?)
-}
+use crate::graphql::model::schema;
 
 #[actix_rt::main]
 async fn main() -> io::Result<()> {
@@ -41,10 +35,6 @@ async fn main() -> io::Result<()> {
                     .domain(CONFIG.server.domain.as_str())
                     .secure(false),
             ))
-            .route("/", web::get().to(index))
-            .route("/info", web::get().to(get_logged_user))
-            .route("/register", web::post().to(register_user))
-            .route("/login", web::post().to(login_user))
             .route("/graphiql", web::get().to(graphql::handlers::graphiql))
             .service(
                 web::resource("/api")

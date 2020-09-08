@@ -8,7 +8,7 @@ use juniper::{EmptySubscription, FieldError, FieldResult, RootNode, Value};
 use uuid::Uuid;
 
 use crate::auth::password_utils::verify_password;
-use crate::auth::{handlers::UserLoginData, password_utils::hash_password};
+use crate::auth::{model::UserLoginData, password_utils::hash_password};
 use crate::db::UserRepo;
 
 pub struct GraphQLContext {

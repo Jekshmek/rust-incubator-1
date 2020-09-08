@@ -2,7 +2,7 @@ use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use juniper_actix::{graphiql_handler, graphql_handler};
 
-use crate::auth::handlers::UserLoginData;
+use crate::auth::model::UserLoginData;
 use crate::db::UserRepo;
 use crate::graphql::model::{GraphQLContext, Schema};
 
@@ -28,10 +28,13 @@ pub async fn graphql(
     }
 
     // Check if user was re-authorized while handling GraphQL
-    if authorized_before && authorized_after {
-        if login_data.unwrap() != *guard.as_ref().unwrap() {
-            identity.remember(serde_json::to_string(&*guard).unwrap());
-        }
+    if authorized_before && authorized_after && login_data.unwrap() != *guard.as_ref().unwrap() {
+        identity.remember(serde_json::to_string(&*guard).unwrap());
+    }
+
+    // Check if user log out while handling GraphQL
+    if authorized_before && !authorized_after {
+        identity.forget();
     }
 
     resp
