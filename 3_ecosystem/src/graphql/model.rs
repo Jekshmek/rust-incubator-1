@@ -1,9 +1,10 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use actix_web::web;
 use juniper::{EmptySubscription, FieldError, FieldResult, RootNode, Value};
 use uuid::Uuid;
 
-use crate::auth::handlers::UserData as UserLoginData;
+use crate::auth::{handlers::UserLoginData, password_utils::hash_password};
 use crate::db::UserRepo;
 
 pub struct GraphQLContext {
@@ -71,8 +72,13 @@ pub struct Query;
 impl Query {
     #[graphql(arguments(name(default = "".to_owned(),)))]
     async fn user(name: String, context: &GraphQLContext) -> FieldResult<User> {
+        let login_data = context
+            .login_data
+            .as_ref()
+            .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
+
         let name_ref = if name.is_empty() {
-            context.login_data.as_ref().unwrap().name.as_str()
+            login_data.name.as_str()
         } else {
             name.as_str()
         };
@@ -94,12 +100,31 @@ pub struct Mutations;
 #[juniper::graphql_object(Context = GraphQLContext)]
 impl Mutations {
     async fn add_friend(name: String, context: &GraphQLContext) -> FieldResult<bool> {
+        let login_data = context
+            .login_data
+            .as_ref()
+            .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
+
         context
             .user_repo
-            .add_friends(
-                context.login_data.as_ref().unwrap().name.as_str(),
-                name.as_str(),
-            )
+            .add_friends(login_data.name.as_str(), name.as_str())
+            .await
+            .map(|_| true)
+            .map_err(|e| FieldError::new(e.msg(), Value::null()))
+    }
+
+    async fn add_user(
+        name: String,
+        password: String,
+        context: &GraphQLContext,
+    ) -> FieldResult<bool> {
+        let hash = web::block(move || hash_password(password))
+            .await
+            .map_err(|_| FieldError::new("Password error", Value::null()))?;
+
+        context
+            .user_repo
+            .add_user(name.as_str(), hash.as_str())
             .await
             .map(|_| true)
             .map_err(|e| FieldError::new(e.msg(), Value::null()))

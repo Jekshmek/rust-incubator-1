@@ -10,14 +10,14 @@ use crate::auth::password_utils::{hash_password, verify_password};
 use crate::db::UserRepo;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct UserData {
+pub struct UserLoginData {
     pub name: String,
     pub password: String,
 }
 
-impl FromRequest for UserData {
+impl FromRequest for UserLoginData {
     type Error = Error;
-    type Future = Ready<Result<UserData, Error>>;
+    type Future = Ready<Result<UserLoginData, Error>>;
     type Config = ();
 
     fn from_request(req: &HttpRequest, payload: &mut Payload<PayloadStream>) -> Self::Future {
@@ -33,7 +33,7 @@ impl FromRequest for UserData {
 }
 
 pub async fn register_user(
-    mut user_data: web::Json<UserData>,
+    mut user_data: web::Json<UserLoginData>,
     user_repo: web::Data<UserRepo>,
 ) -> Result<HttpResponse> {
     let password = std::mem::take(&mut user_data.password);
@@ -50,7 +50,7 @@ pub async fn register_user(
 }
 
 pub async fn login_user(
-    auth_data: web::Json<UserData>,
+    auth_data: web::Json<UserLoginData>,
     id: Identity,
     user_repo: web::Data<UserRepo>,
 ) -> Result<HttpResponse> {
@@ -74,6 +74,6 @@ pub async fn login_user(
     Ok(HttpResponse::Ok().finish())
 }
 
-pub async fn get_logged_user(logged_user: UserData) -> HttpResponse {
+pub async fn get_logged_user(logged_user: UserLoginData) -> HttpResponse {
     HttpResponse::Ok().json(logged_user)
 }

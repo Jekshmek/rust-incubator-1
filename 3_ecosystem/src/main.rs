@@ -45,11 +45,11 @@ async fn main() -> io::Result<()> {
             .route("/info", web::get().to(get_logged_user))
             .route("/register", web::post().to(register_user))
             .route("/login", web::post().to(login_user))
-            .route("/graphiql", web::get().to(graphql::handler::graphiql))
+            .route("/graphiql", web::get().to(graphql::handlers::graphiql))
             .service(
                 web::resource("/api")
-                    .route(web::post().to(graphql::handler::graphql))
-                    .route(web::get().to(graphql::handler::graphql)),
+                    .route(web::post().to(graphql::handlers::graphql))
+                    .route(web::get().to(graphql::handlers::graphql)),
             )
     })
     .bind(CONFIG.server.url.as_str())?

@@ -92,8 +92,8 @@ pub enum UserRepoError {
     ConnectionFailed,
 }
 
-impl From<&UserRepoError> for &'static str {
-    fn from(repo: &UserRepoError) -> Self {
+impl From<UserRepoError> for &'static str {
+    fn from(repo: UserRepoError) -> Self {
         match repo {
             UserRepoError::UserNotFound => "User not found",
             UserRepoError::UserAlreadyExists => "User already exists",
@@ -105,6 +105,6 @@ impl From<&UserRepoError> for &'static str {
 
 impl UserRepoError {
     pub fn msg(self) -> &'static str {
-        (&self).into()
+        self.into()
     }
 }
