@@ -25,6 +25,6 @@ impl FromRequest for UserLoginData {
                 }
             }
         }
-        err(error::ErrorUnauthorized("Log in first"))
+        err(error::ErrorUnauthorized("Unauthorized"))
     }
 }

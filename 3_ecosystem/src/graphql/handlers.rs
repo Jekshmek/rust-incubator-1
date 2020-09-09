@@ -3,7 +3,7 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use juniper_actix::{graphiql_handler, graphql_handler, playground_handler};
 
 use crate::auth::model::UserLoginData;
-use crate::db::UserRepo;
+use crate::db::repository::UserRepo;
 use crate::graphql::model::{GraphQLContext, Schema};
 
 pub async fn graphql(
@@ -20,20 +20,22 @@ pub async fn graphql(
     let resp = graphql_handler(&schema, &context, req, payload).await;
 
     let guard = context.login_data.lock().unwrap();
-    let authorized_after = guard.is_some();
+    let login_data_after = &*guard;
 
-    // Check if user was authorized while handling GraphQL
-    if !authorized_before && authorized_after {
-        identity.remember(serde_json::to_string(&*guard).unwrap());
+    let authorized_after = login_data_after.is_some();
+
+    let was_authorized = !authorized_before && authorized_after;
+    let was_reauthorized = authorized_before
+        && authorized_after
+        && login_data.unwrap() != *login_data_after.as_ref().unwrap();
+
+    if was_authorized || was_reauthorized {
+        let json = serde_json::to_string(login_data_after.as_ref().unwrap()).unwrap();
+        identity.remember(json);
     }
 
-    // Check if user was re-authorized while handling GraphQL
-    if authorized_before && authorized_after && login_data.unwrap() != *guard.as_ref().unwrap() {
-        identity.remember(serde_json::to_string(&*guard).unwrap());
-    }
-
-    // Check if user log out while handling GraphQL
-    if authorized_before && !authorized_after {
+    let was_logged_out = authorized_before && !authorized_after;
+    if was_logged_out {
         identity.forget();
     }
 

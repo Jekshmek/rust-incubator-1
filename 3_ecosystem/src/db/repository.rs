@@ -1,7 +1,7 @@
 use sqlx::{postgres::PgQueryAs, PgPool};
 use uuid::Uuid;
 
-use crate::model::User;
+use super::model::User;
 
 #[derive(Clone, Debug)]
 pub struct UserRepo {

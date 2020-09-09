@@ -9,12 +9,12 @@ use uuid::Uuid;
 
 use crate::auth::password_utils::verify_password;
 use crate::auth::{model::UserLoginData, password_utils::hash_password};
-use crate::db::UserRepo;
+use crate::db::repository::UserRepo;
 
 pub struct GraphQLContext {
     pub user_repo: UserRepo,
     pub login_data: Arc<Mutex<Option<UserLoginData>>>,
-    pub query_depth: AtomicU32,
+    pub friends_query_depth: AtomicU32,
 }
 
 impl GraphQLContext {
@@ -22,7 +22,7 @@ impl GraphQLContext {
         GraphQLContext {
             user_repo,
             login_data: Arc::new(Mutex::new(login_data)),
-            query_depth: AtomicU32::new(0),
+            friends_query_depth: AtomicU32::new(0),
         }
     }
 }
@@ -45,14 +45,14 @@ impl User {
     }
 
     async fn friends(&self, context: &GraphQLContext) -> FieldResult<Vec<User>> {
-        if context.query_depth.load(Ordering::Relaxed) > 0 {
+        if context.friends_query_depth.load(Ordering::Relaxed) > 0 {
             return Err(FieldError::new(
                 "Friends depth can not be more than 1",
                 Value::null(),
             ));
         }
 
-        context.query_depth.fetch_add(1, Ordering::Relaxed);
+        context.friends_query_depth.fetch_add(1, Ordering::Relaxed);
 
         let friends = context
             .user_repo
@@ -79,7 +79,7 @@ impl Query {
         let login_data = Option::clone(&context.login_data.lock().unwrap())
             .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
 
-        let name_ref = if name.is_empty() {
+        let name = if name.is_empty() {
             login_data.name.as_str()
         } else {
             name.as_str()
@@ -87,12 +87,29 @@ impl Query {
 
         context
             .user_repo
-            .get_user_by_name(name_ref)
+            .get_user_by_name(name)
             .await
             .map(|user| User {
                 id: user.id,
                 name: user.name,
             })
+            .map_err(|e| FieldError::new(e.msg(), Value::null()))
+    }
+}
+
+pub struct Mutations;
+
+#[juniper::graphql_object(Context = GraphQLContext)]
+impl Mutations {
+    async fn add_friend(name: String, context: &GraphQLContext) -> FieldResult<bool> {
+        let login_data = Option::clone(&context.login_data.lock().unwrap())
+            .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
+
+        context
+            .user_repo
+            .add_friends(login_data.name.as_str(), name.as_str())
+            .await
+            .map(|_| true)
             .map_err(|e| FieldError::new(e.msg(), Value::null()))
     }
 
@@ -117,23 +134,6 @@ impl Query {
         guard.replace(UserLoginData { name, password });
 
         Ok(true)
-    }
-}
-
-pub struct Mutations;
-
-#[juniper::graphql_object(Context = GraphQLContext)]
-impl Mutations {
-    async fn add_friend(name: String, context: &GraphQLContext) -> FieldResult<bool> {
-        let login_data = Option::clone(&context.login_data.lock().unwrap())
-            .ok_or_else(|| FieldError::new("Unauthorized", Value::null()))?;
-
-        context
-            .user_repo
-            .add_friends(login_data.name.as_str(), name.as_str())
-            .await
-            .map(|_| true)
-            .map_err(|e| FieldError::new(e.msg(), Value::null()))
     }
 
     async fn add_user(

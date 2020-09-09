@@ -2,7 +2,6 @@ mod auth;
 mod config;
 mod db;
 mod graphql;
-mod model;
 
 use std::{env, io};
 
@@ -11,7 +10,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use sqlx::PgPool;
 
 use crate::config::CONFIG;
-use crate::db::UserRepo;
+use crate::db::repository::UserRepo;
 use crate::graphql::model::schema;
 
 #[actix_rt::main]
