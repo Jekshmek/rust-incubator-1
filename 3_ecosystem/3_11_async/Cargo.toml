@@ -3,3 +3,12 @@ name = "step_3_11"
 version = "0.1.0"
 edition = "2018"
 publish = false
+
+[dependencies]
+structopt = "0.3.17"
+num_cpus = "1.13.0"
+tokio = { version = "0.2.22", features = ["macros", "fs", "io-util", "rt-threaded"]}
+reqwest = { version = "0.10.8", features = ["stream"] }
+futures = "0.3.5"
+once_cell = "1.4.1"
+regex = "1.3.9"
